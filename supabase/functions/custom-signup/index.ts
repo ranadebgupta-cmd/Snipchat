@@ -14,7 +14,7 @@ serve(async (req) => {
   try {
     const { email, password, firstName, lastName } = await req.json();
     console.log("[custom-signup] Received signup request for email:", email);
-    console.log("[custom-signup] Request body:", { email, firstName, lastName }); // Log relevant parts of the body
+    console.log("[custom-signup] Request body:", { email, firstName, lastName });
 
     if (!email || !password || !firstName || !lastName) {
       console.warn("[custom-signup] Missing required fields in request body.");
@@ -37,11 +37,13 @@ serve(async (req) => {
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    // 1. Create the user using the admin client without sending an email
+    // Create the user using the admin client and immediately confirm their email
+    // Setting email_confirm: true here means the user's email is marked as confirmed
+    // upon creation, bypassing the need for a confirmation email.
     const { data: userCreationData, error: userCreationError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: false,
+      email_confirm: true, // User's email is immediately confirmed
       user_metadata: {
         first_name: firstName,
         last_name: lastName,
@@ -64,40 +66,11 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    console.log("[custom-signup] User created successfully:", newUser.id);
+    console.log("[custom-signup] User created and email immediately confirmed:", newUser.id);
 
-    // 2. Generate a custom signup confirmation link
-    const redirectTo = `${req.headers.get('origin')}/auth/callback`;
-    console.log("[custom-signup] Redirect URL for email confirmation:", redirectTo);
+    // No need to generate or send a confirmation link/email as the user is already confirmed.
 
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'signup',
-      email: newUser.email,
-      options: {
-        redirectTo: redirectTo,
-      },
-    });
-
-    if (linkError) {
-      console.error("[custom-signup] Error generating confirmation link:", linkError);
-      return new Response(JSON.stringify({ error: linkError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const confirmationLink = linkData.properties?.emailRedirectTo;
-    console.log("[custom-signup] Generated confirmation link:", confirmationLink);
-
-    // --- IMPORTANT: Placeholder for actual email sending logic ---
-    console.log(`[custom-signup] Sending custom SnipChat confirmation email to ${newUser.email}`);
-    console.log(`[custom-signup] Subject: Welcome to SnipChat! Confirm your email`);
-    console.log(`[custom-signup] Body: Hi ${firstName}! Please confirm your email by clicking this link: ${confirmationLink}`);
-    // In a real application, you MUST integrate with an email service here (e.g., SendGrid, Resend)
-    // Example: await sendEmailService.send({ to: newUser.email, subject: '...', body: `...${confirmationLink}...` });
-    // --- End Placeholder ---
-
-    return new Response(JSON.stringify({ message: 'User created and custom confirmation email details logged. Please implement actual email sending.' }), {
+    return new Response(JSON.stringify({ message: 'User created and email immediately confirmed. Ready to log in.' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

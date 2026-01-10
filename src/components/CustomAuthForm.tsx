@@ -34,7 +34,7 @@ export const CustomAuthForm = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Call the custom-signup Edge Function instead of supabase.auth.signUp
+    // Call the custom-signup Edge Function
     const { data, error: edgeFunctionError } = await supabase.functions.invoke('custom-signup', {
       body: { email, password, firstName, lastName },
     });
@@ -43,8 +43,9 @@ export const CustomAuthForm = () => {
       console.error("Error invoking custom-signup Edge Function:", edgeFunctionError);
       showError(edgeFunctionError.message || "Failed to sign up. Please try again.");
     } else {
-      showSuccess("Account created! Please check your email to confirm your account.");
-      setActiveTab('login'); // Suggest user to log in after confirming email
+      // User is immediately confirmed, so they can log in directly
+      showSuccess("Account created successfully! You can now log in.");
+      setActiveTab('login'); // Suggest user to log in after successful signup
     }
     setIsLoading(false);
   };
