@@ -60,7 +60,7 @@ export const NewConversationDialog = ({
       const { data, error } = await supabase
         .from("profiles")
         .select("id, first_name, last_name, avatar_url")
-        .ilike("first_name", `%${searchTerm}%`) // Search by first name
+        .or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%`) // Search by first OR last name
         .neq("id", currentUser?.id); // Exclude current user
 
       if (error) {
@@ -176,7 +176,7 @@ export const NewConversationDialog = ({
             </div>
           )}
           <Input
-            placeholder="Search users by first name..."
+            placeholder="Search users by first name or last name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="focus-visible:ring-primary"
