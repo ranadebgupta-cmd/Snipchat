@@ -4,62 +4,94 @@ import React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-
-interface Message {
-  id: string;
-  sender: string;
-  text: string;
-  timestamp: string;
-}
-
-interface Conversation {
-  id: string;
-  name: string;
-  messages: Message[];
-  avatar: string;
-}
+import { User } from "@supabase/supabase-js";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { SupabaseConversation } from "./ChatApp"; // Import the shared type
 
 interface ChatSidebarProps {
-  conversations: Conversation[];
+  conversations: SupabaseConversation[];
   selectedConversationId: string | null;
   onSelectConversation: (id: string) => void;
+  currentUser: User;
 }
 
 export const ChatSidebar = ({
   conversations,
   selectedConversationId,
   onSelectConversation,
+  currentUser,
 }: ChatSidebarProps) => {
+
+  const getConversationDisplayName = (conversation: SupabaseConversation) => {
+    if (conversation.name) {
+      return conversation.name; // Use group chat name if available
+    }
+    // For 1-on-1 chats, find the other participant's name
+    const otherParticipant = conversation.conversation_participants.find(
+      (p) => p.user_id !== currentUser.id
+    );
+    if (otherParticipant && otherParticipant.profiles) {
+      return `${otherParticipant.profiles.first_name || ''} ${otherParticipant.profiles.last_name || ''}`.trim() || "Unknown User";
+    }
+    return "New Chat";
+  };
+
+  const getConversationDisplayAvatar = (conversation: SupabaseConversation) => {
+    if (conversation.name) {
+      // For group chats, could use a default group avatar or first participant's
+      return "https://api.dicebear.com/7.x/lorelei/svg?seed=GroupChat";
+    }
+    const otherParticipant = conversation.conversation_participants.find(
+      (p) => p.user_id !== currentUser.id
+    );
+    return otherParticipant?.profiles?.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${otherParticipant?.profiles?.first_name || 'User'}`;
+  };
+
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 border-b border-border">
+      <div className="p-4 border-b border-border flex justify-between items-center">
         <h2 className="text-xl font-semibold">Chats</h2>
+        <Button variant="ghost" size="icon" onClick={() => console.log("Start new chat")}>
+          <Plus className="h-5 w-5" />
+          <span className="sr-only">Start new chat</span>
+        </Button>
       </div>
       <ScrollArea className="flex-1">
-        {conversations.map((conversation) => (
-          <div
-            key={conversation.id}
-            className={cn(
-              "flex items-center p-4 cursor-pointer hover:bg-accent",
-              selectedConversationId === conversation.id && "bg-accent"
-            )}
-            onClick={() => onSelectConversation(conversation.id)}
-          >
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={conversation.avatar} alt={conversation.name} />
-              <AvatarFallback>{conversation.name.charAt(0)}</AvatarFallback>
-            </Avatar>
-            <div className="ml-3 flex-1">
-              <p className="font-medium">{conversation.name}</p>
-              <p className="text-sm text-muted-foreground truncate">
-                {conversation.messages[conversation.messages.length - 1]?.text || "No messages yet"}
-              </p>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {conversation.messages[conversation.messages.length - 1]?.timestamp}
-            </p>
-          </div>
-        ))}
+        {conversations.length === 0 ? (
+          <div className="p-4 text-muted-foreground text-center">No conversations yet.</div>
+        ) : (
+          conversations.map((conversation) => {
+            const latestMessage = conversation.messages[0];
+            const displayName = getConversationDisplayName(conversation);
+            const displayAvatar = getConversationDisplayAvatar(conversation);
+
+            return (
+              <div
+                key={conversation.id}
+                className={cn(
+                  "flex items-center p-4 cursor-pointer hover:bg-accent",
+                  selectedConversationId === conversation.id && "bg-accent"
+                )}
+                onClick={() => onSelectConversation(conversation.id)}
+              >
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={displayAvatar} alt={displayName} />
+                  <AvatarFallback>{displayName.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <div className="ml-3 flex-1">
+                  <p className="font-medium">{displayName}</p>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {latestMessage?.content || "No messages yet"}
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {latestMessage?.created_at ? new Date(latestMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                </p>
+              </div>
+            );
+          })
+        )}
       </ScrollArea>
     </div>
   );

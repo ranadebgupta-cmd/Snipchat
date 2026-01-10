@@ -1,85 +1,182 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ChatSidebar } from "./ChatSidebar";
 import { ChatMessageArea } from "./ChatMessageArea";
-import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/integrations/supabase/auth";
+import { supabase } from "@/integrations/supabase/client";
+import { showError } from "@/utils/toast";
+import { User } from "@supabase/supabase-js";
 
-interface Message {
+// Define types for Supabase data
+interface Profile {
   id: string;
-  sender: string;
-  text: string;
-  timestamp: string;
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
 }
 
-interface Conversation {
+interface SupabaseMessage {
   id: string;
-  name: string;
-  messages: Message[];
-  avatar: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  profiles: Profile; // Joined profile data
 }
 
-const initialConversations: Conversation[] = [
-  {
-    id: "1",
-    name: "Alice",
-    avatar: "https://api.dicebear.com/7.x/lorelei/svg?seed=Alice",
-    messages: [
-      { id: "m1", sender: "Alice", text: "Hi there!", timestamp: "10:00 AM" },
-      { id: "m2", sender: "You", text: "Hello Alice!", timestamp: "10:01 AM" },
-    ],
-  },
-  {
-    id: "2",
-    name: "Bob",
-    avatar: "https://api.dicebear.com/7.x/lorelei/svg?seed=Bob",
-    messages: [
-      { id: "m3", sender: "Bob", text: "Hey, how are you?", timestamp: "10:05 AM" },
-      { id: "m4", sender: "You", text: "I'm good, thanks!", timestamp: "10:06 AM" },
-    ],
-  },
-  {
-    id: "3",
-    name: "Charlie",
-    avatar: "https://api.dicebear.com/7.x/lorelei/svg?seed=Charlie",
-    messages: [
-      { id: "m5", sender: "Charlie", text: "What's up?", timestamp: "10:10 AM" },
-    ],
-  },
-];
+export interface SupabaseConversation {
+  id: string;
+  name: string | null;
+  created_at: string;
+  conversation_participants: {
+    user_id: string;
+    profiles: Profile; // Joined profile data for participants
+  }[];
+  messages: SupabaseMessage[]; // Latest message for display in sidebar
+}
 
 export const ChatApp = () => {
-  const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(
-    initialConversations[0]?.id || null
-  );
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const [conversations, setConversations] = useState<SupabaseConversation[]>([]);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+
+  useEffect(() => {
+    if (!user || isAuthLoading) {
+      setIsLoadingConversations(false);
+      return;
+    }
+
+    const fetchConversations = async () => {
+      setIsLoadingConversations(true);
+      const { data, error } = await supabase
+        .from('conversation_participants')
+        .select(
+          `
+          conversations (
+            id,
+            name,
+            created_at,
+            conversation_participants (
+              user_id,
+              profiles (
+                id,
+                first_name,
+                last_name,
+                avatar_url
+              )
+            ),
+            messages (
+              id,
+              sender_id,
+              content,
+              created_at,
+              profiles (
+                id,
+                first_name,
+                last_name,
+                avatar_url
+              )
+            )
+          )
+          `
+        )
+        .eq('user_id', user.id)
+        .order('created_at', { foreignTable: 'conversations.messages', ascending: false })
+        .limit(1, { foreignTable: 'conversations.messages' }); // Get only the latest message for each conversation
+
+      if (error) {
+        console.error("Error fetching conversations:", error);
+        showError("Failed to load conversations.");
+      } else {
+        // Flatten the data structure and process it
+        const processedConversations = data
+          .map((cp: any) => {
+            const conv = cp.conversations;
+            if (!conv) return null;
+
+            // Ensure messages is an array and get the latest one
+            const latestMessage = conv.messages && conv.messages.length > 0 ? conv.messages[0] : null;
+
+            return {
+              id: conv.id,
+              name: conv.name,
+              created_at: conv.created_at,
+              conversation_participants: conv.conversation_participants,
+              messages: latestMessage ? [latestMessage] : [], // Store only the latest message for sidebar display
+            };
+          })
+          .filter(Boolean) as SupabaseConversation[];
+
+        setConversations(processedConversations);
+        if (processedConversations.length > 0 && !selectedConversationId) {
+          setSelectedConversationId(processedConversations[0].id);
+        }
+      }
+      setIsLoadingConversations(false);
+    };
+
+    fetchConversations();
+
+    // Setup real-time listener for new messages or conversation updates
+    const channel = supabase
+      .channel('public:conversations')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'conversations' },
+        (payload) => {
+          console.log('[ChatApp] Conversation change received!', payload);
+          fetchConversations(); // Re-fetch conversations for simplicity
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'messages' },
+        (payload) => {
+          console.log('[ChatApp] Message change received!', payload);
+          fetchConversations(); // Re-fetch conversations for simplicity
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, isAuthLoading, selectedConversationId]);
 
   const selectedConversation = conversations.find(
     (conv) => conv.id === selectedConversationId
   );
 
-  const handleSendMessage = (text: string) => {
-    if (selectedConversationId && text.trim()) {
-      setConversations((prevConversations) =>
-        prevConversations.map((conv) =>
-          conv.id === selectedConversationId
-            ? {
-                ...conv,
-                messages: [
-                  ...conv.messages,
-                  {
-                    id: Date.now().toString(),
-                    sender: "You",
-                    text,
-                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                  },
-                ],
-              }
-            : conv
-        )
-      );
+  const handleSendMessage = async (text: string) => {
+    if (!user || !selectedConversationId || !text.trim()) return;
+
+    const { error } = await supabase.from('messages').insert({
+      conversation_id: selectedConversationId,
+      sender_id: user.id,
+      content: text,
+    });
+
+    if (error) {
+      console.error("Error sending message:", error);
+      showError("Failed to send message.");
     }
+    // The real-time listener in ChatMessageArea will handle updating the UI
   };
+
+  if (isAuthLoading || isLoadingConversations) {
+    return (
+      <div className="flex items-center justify-center h-screen w-screen bg-background">
+        <p className="text-lg text-muted-foreground">Loading chat...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    // Should be redirected by SessionContextProvider, but as a fallback
+    return null;
+  }
 
   return (
     <div className="flex h-screen bg-background text-foreground">
@@ -88,6 +185,7 @@ export const ChatApp = () => {
           conversations={conversations}
           selectedConversationId={selectedConversationId}
           onSelectConversation={setSelectedConversationId}
+          currentUser={user}
         />
       </div>
       <div className="flex-1 flex flex-col">
@@ -95,10 +193,11 @@ export const ChatApp = () => {
           <ChatMessageArea
             conversation={selectedConversation}
             onSendMessage={handleSendMessage}
+            currentUser={user}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            Select a conversation to start chatting
+            Select a conversation to start chatting or start a new one.
           </div>
         )}
       </div>
