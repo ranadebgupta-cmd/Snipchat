@@ -6,9 +6,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
-import { SupabaseConversation } from "./ChatApp"; // Import the shared type
-import { NewConversationDialog } from "./NewConversationDialog"; // Import the new dialog
+import { Plus, User as UserIcon } from "lucide-react"; // Import User icon
+import { SupabaseConversation } from "./ChatApp";
+import { NewConversationDialog } from "./NewConversationDialog";
+import { UserProfileDialog } from "./UserProfileDialog"; // Import the new dialog
 
 interface ChatSidebarProps {
   conversations: SupabaseConversation[];
@@ -24,12 +25,12 @@ export const ChatSidebar = ({
   currentUser,
 }: ChatSidebarProps) => {
   const [isNewChatDialogOpen, setIsNewChatDialogOpen] = useState(false);
+  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false); // State for profile dialog
 
   const getConversationDisplayName = (conversation: SupabaseConversation) => {
     if (conversation.name) {
-      return conversation.name; // Use group chat name if available
+      return conversation.name;
     }
-    // For 1-on-1 chats, find the other participant's name
     const otherParticipant = conversation.conversation_participants.find(
       (p) => p.user_id !== currentUser.id
     );
@@ -41,7 +42,6 @@ export const ChatSidebar = ({
 
   const getConversationDisplayAvatar = (conversation: SupabaseConversation) => {
     if (conversation.name) {
-      // For group chats, could use a default group avatar or first participant's
       return "https://api.dicebear.com/7.x/lorelei/svg?seed=GroupChat";
     }
     const otherParticipant = conversation.conversation_participants.find(
@@ -51,17 +51,23 @@ export const ChatSidebar = ({
   };
 
   const handleNewConversationCreated = (conversationId: string) => {
-    onSelectConversation(conversationId); // Automatically select the new conversation
+    onSelectConversation(conversationId);
   };
 
   return (
     <div className="h-full flex flex-col">
       <div className="p-4 border-b border-border flex justify-between items-center">
         <h2 className="text-xl font-semibold">Chats</h2>
-        <Button variant="ghost" size="icon" onClick={() => setIsNewChatDialogOpen(true)}>
-          <Plus className="h-5 w-5" />
-          <span className="sr-only">Start new chat</span>
-        </Button>
+        <div className="flex space-x-2">
+          <Button variant="ghost" size="icon" onClick={() => setIsProfileDialogOpen(true)}>
+            <UserIcon className="h-5 w-5" />
+            <span className="sr-only">View Profile</span>
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => setIsNewChatDialogOpen(true)}>
+            <Plus className="h-5 w-5" />
+            <span className="sr-only">Start new chat</span>
+          </Button>
+        </div>
       </div>
       <ScrollArea className="flex-1">
         {conversations.length === 0 ? (
@@ -103,6 +109,10 @@ export const ChatSidebar = ({
         isOpen={isNewChatDialogOpen}
         onClose={() => setIsNewChatDialogOpen(false)}
         onConversationCreated={handleNewConversationCreated}
+      />
+      <UserProfileDialog
+        isOpen={isProfileDialogOpen}
+        onClose={() => setIsProfileDialogOpen(false)}
       />
     </div>
   );
