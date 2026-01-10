@@ -103,8 +103,6 @@ export const NewConversationDialog = ({
       return;
     }
 
-    // If more than one participant (excluding current user) is selected, or if a group name is provided, it's a group chat.
-    // Otherwise, it's a 1-on-1 chat.
     const isGroupChat = selectedParticipants.length > 1 || groupName.trim() !== "";
 
     if (isGroupChat && !groupName.trim()) {
@@ -118,36 +116,36 @@ export const NewConversationDialog = ({
       // 1. Create the conversation with minimal data, relying on defaults
       const { data: conversationData, error: conversationError } = await supabase
         .from("conversations")
-        .insert({}) // Insert an empty object to rely on default values for all columns
+        .insert({})
         .select("id")
         .single();
 
       if (conversationError || !conversationData) {
         console.error("[NewConversationDialog] Error creating conversation:", conversationError);
-        // Log the full error object for detailed debugging
         console.error("[NewConversationDialog] Supabase error details:", JSON.stringify(conversationError, null, 2));
         throw new Error(conversationError?.message || "Failed to create conversation.");
       }
 
       const conversationId = conversationData.id;
-      console.log("[NewConversationDialog] Successfully created conversation with ID:", conversationId); // Add logging
+      console.log("[NewConversationDialog] Successfully created conversation with ID:", conversationId);
 
-      // 2. Add current user as participant
-      const participantsToInsert = [{ conversation_id: conversationId, user_id: currentUser.id }];
+      // Collect all participant IDs, including the current user
+      const allParticipantIds = [currentUser.id, ...selectedParticipants.map(p => p.id)];
 
-      // 3. Add selected participants
-      selectedParticipants.forEach((p) => {
-        participantsToInsert.push({ conversation_id: conversationId, user_id: p.id });
+      // 2. Call the Edge Function to add all participants
+      console.log("[NewConversationDialog] Invoking Edge Function to add participants...");
+      const { data: edgeFunctionResponse, error: edgeFunctionError } = await supabase.functions.invoke('add-conversation-participants', {
+        body: {
+          conversation_id: conversationId,
+          participant_ids: allParticipantIds,
+        },
       });
 
-      const { error: participantsError } = await supabase
-        .from("conversation_participants")
-        .insert(participantsToInsert);
-
-      if (participantsError) {
-        console.error("[NewConversationDialog] Error adding participants:", participantsError);
-        throw new Error(participantsError?.message || "Failed to add participants.");
+      if (edgeFunctionError) {
+        console.error("[NewConversationDialog] Error invoking add-conversation-participants Edge Function:", edgeFunctionError);
+        throw new Error(edgeFunctionError.message || "Failed to add participants via Edge Function.");
       }
+      console.log("[NewConversationDialog] Edge Function response:", edgeFunctionResponse);
       
       // If it's a group chat and a name was provided, update the conversation name
       if (isGroupChat && groupName.trim()) {
