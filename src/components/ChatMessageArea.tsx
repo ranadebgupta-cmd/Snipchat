@@ -103,26 +103,15 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
         conversation_id,
         sender_id,
         content,
-        created_at,
-        profiles (
-          id,
-          first_name,
-          last_name,
-          avatar_url
-        ),
-        message_receipts (
-          message_id,
-          user_id,
-          seen_at
-        )
-        `
+        created_at
+        ` // Temporarily removed profiles and message_receipts joins
       )
       .eq('conversation_id', conversation.id)
       .order('created_at', { ascending: true });
 
     if (error) {
       console.error("[ChatMessageArea] Error fetching messages:", error);
-      showError("Failed to load messages.");
+      showError("Failed to load messages."); // This is the toast message the user is seeing
       setMessages([]);
     } else {
       // Explicitly map the data to ensure 'profiles' is a single object
@@ -132,9 +121,9 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
         sender_id: msg.sender_id,
         content: msg.content,
         created_at: msg.created_at,
-        // Ensure profiles is a single object, assuming it's returned as an array of one or directly as an object
-        profiles: Array.isArray(msg.profiles) ? msg.profiles[0] : msg.profiles,
-        message_receipts: msg.message_receipts || [], // Ensure it's an array
+        // Default empty profile and receipts for now
+        profiles: { id: msg.sender_id, first_name: null, last_name: null, avatar_url: null },
+        message_receipts: [],
       }));
       setMessages(fetchedMessages);
 
@@ -377,10 +366,11 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
         ) : (
           <div className="space-y-4">
             {messages.map((message) => {
-              const senderProfile = message.profiles || getParticipantProfile(message.sender_id);
+              // Use a placeholder profile for now since joins are removed
+              const senderProfile = { id: message.sender_id, first_name: "User", last_name: "", avatar_url: `https://api.dicebear.com/7.x/lorelei/svg?seed=User` };
               const senderName = senderProfile?.first_name || "Unknown";
               const senderAvatar = senderProfile?.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${senderName}`;
-              const seenByAll = isMessageSeenByAllOthers(message);
+              const seenByAll = isMessageSeenByAllOthers(message); // This will always be false for now
 
               return (
                 <div
