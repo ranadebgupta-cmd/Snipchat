@@ -92,23 +92,37 @@ export const ChatApp = () => {
         showError("Failed to load conversations.");
       } else {
         // Flatten the data structure and process it
-        const processedConversations = data
+        const processedConversations: SupabaseConversation[] = (data || [])
           .map((cp: any) => {
             const conv = cp.conversations;
             if (!conv) return null;
 
-            // Ensure messages is an array and get the latest one
+            // Process conversation participants to ensure 'profiles' is a single object
+            const processedParticipants = (conv.conversation_participants || []).map((participant: any) => ({
+              user_id: participant.user_id,
+              profiles: Array.isArray(participant.profiles) ? participant.profiles[0] : participant.profiles,
+            }));
+
+            // Ensure messages is an array and get the latest one, processing its profile
             const latestMessage = conv.messages && conv.messages.length > 0 ? conv.messages[0] : null;
+            const processedLatestMessage = latestMessage ? {
+              id: latestMessage.id,
+              conversation_id: latestMessage.conversation_id,
+              sender_id: latestMessage.sender_id,
+              content: latestMessage.content,
+              created_at: latestMessage.created_at,
+              profiles: Array.isArray(latestMessage.profiles) ? latestMessage.profiles[0] : latestMessage.profiles,
+            } : null;
 
             return {
               id: conv.id,
               name: conv.name,
               created_at: conv.created_at,
-              conversation_participants: conv.conversation_participants,
-              messages: latestMessage ? [latestMessage] : [], // Store only the latest message for sidebar display
+              conversation_participants: processedParticipants,
+              messages: processedLatestMessage ? [processedLatestMessage] : [], // Store only the latest message for sidebar display
             };
           })
-          .filter(Boolean) as SupabaseConversation[];
+          .filter(Boolean) as SupabaseConversation[]; // Cast after filtering nulls
 
         setConversations(processedConversations);
         if (processedConversations.length > 0 && !selectedConversationId) {

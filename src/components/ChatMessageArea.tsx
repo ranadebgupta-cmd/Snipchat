@@ -104,7 +104,17 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
       showError("Failed to load messages.");
       setMessages([]);
     } else {
-      const fetchedMessages = data as SupabaseMessage[];
+      // Explicitly map the data to ensure 'profiles' is a single object
+      const fetchedMessages: SupabaseMessage[] = (data || []).map((msg: any) => ({
+        id: msg.id,
+        conversation_id: msg.conversation_id,
+        sender_id: msg.sender_id,
+        content: msg.content,
+        created_at: msg.created_at,
+        // Ensure profiles is a single object, assuming it's returned as an array of one or directly as an object
+        profiles: Array.isArray(msg.profiles) ? msg.profiles[0] : msg.profiles,
+        message_receipts: msg.message_receipts || [], // Ensure it's an array
+      }));
       setMessages(fetchedMessages);
 
       // Identify messages sent by others that the current user hasn't seen yet
@@ -115,13 +125,11 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
       if (unseenMessageIds.length > 0) {
         await markMessagesAsSeen(unseenMessageIds);
         // Re-fetch messages to show updated seen status for the current user
-        // This might cause a slight flicker, but ensures data consistency.
-        // For a more optimized approach, we could update state directly.
         fetchMessages();
       }
     }
     setIsLoadingMessages(false);
-  }, [conversation.id, currentUser, markMessagesAsSeen]);
+  }, [conversation.id, currentUser, markMessagesAsSeen]); // Added messages to dependency array to update filter for receipts
 
   useEffect(() => {
     fetchMessages();
