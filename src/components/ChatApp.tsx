@@ -102,7 +102,7 @@ export const ChatApp = () => {
             // Process conversation participants to ensure 'profiles' is a single object
             const processedParticipants = (conv.conversation_participants || []).map((participant: any) => ({
               user_id: participant.user_id,
-              profiles: participant.profiles && Array.isArray(participant.profiles) ? participant.profiles[0] : participant.profiles,
+              profiles: Array.isArray(participant.profiles) ? participant.profiles[0] : participant.profiles,
             }));
 
             // Ensure messages is an array and get the latest one, processing its profile
@@ -113,7 +113,7 @@ export const ChatApp = () => {
               sender_id: latestMessage.sender_id,
               content: latestMessage.content,
               created_at: latestMessage.created_at,
-              profiles: latestMessage.profiles && Array.isArray(latestMessage.profiles) ? latestMessage.profiles[0] : latestMessage.profiles,
+              profiles: Array.isArray(latestMessage.profiles) ? latestMessage.profiles[0] : latestMessage.profiles,
             } : null;
 
             return {
