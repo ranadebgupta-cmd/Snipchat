@@ -64,16 +64,11 @@ export const NewConversationDialog = ({
 
       const searchParts = searchTerm.trim().split(/\s+/).filter(Boolean);
 
-      if (searchParts.length > 0) {
-        // Construct a complex OR condition for each search part
-        // Example: if searchTerm is "John Doe", it will search for
-        // (first_name ILIKE '%john%' OR last_name ILIKE '%john%') AND (first_name ILIKE '%doe%' OR last_name ILIKE '%doe%')
-        const conditions = searchParts.map(part => {
-          const lowerCasePart = part.toLowerCase();
-          return `or(first_name.ilike.%${lowerCasePart}%,last_name.ilike.%${lowerCasePart}%)`;
-        }).join(',');
-        query = query.or(conditions);
-      }
+      // Apply an 'AND' logic across multiple search parts
+      searchParts.forEach(part => {
+        const lowerCasePart = part.toLowerCase();
+        query = query.or(`first_name.ilike.%${lowerCasePart}%,last_name.ilike.%${lowerCasePart}%`);
+      });
 
       const { data, error } = await query;
 
