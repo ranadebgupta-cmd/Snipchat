@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, CheckCheck, Trash2 } from "lucide-react"; // Import CheckCheck and Trash2 icons
+import { Send, CheckCheck, Trash2 } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { showError, showSuccess } from "@/utils/toast";
@@ -63,11 +63,11 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [typingUsers, setTypingUsers] = useState<TypingStatus[]>([]);
-  const [messageToDeleteId, setMessageToDeleteId] = useState<string | null>(null); // State for message to delete
+  const [messageToDeleteId, setMessageToDeleteId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const TYPING_INDICATOR_TIMEOUT_MS = 3000; // Typing indicator disappears after 3 seconds of no activity
+  const TYPING_INDICATOR_TIMEOUT_MS = 3000;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -84,7 +84,7 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
     const { error } = await supabase
       .from('message_receipts')
       .insert(receiptsToInsert)
-      .select(); // Select to get the inserted data, useful for debugging
+      .select();
 
     if (error && error.code !== '23505') { // 23505 is unique_violation, which means receipt already exists
       console.error("[ChatMessageArea] Error marking messages as seen:", error);
@@ -103,27 +103,36 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
         conversation_id,
         sender_id,
         content,
-        created_at
-        ` // Temporarily removed profiles and message_receipts joins
+        created_at,
+        profiles (
+          id,
+          first_name,
+          last_name,
+          avatar_url
+        ),
+        message_receipts (
+          message_id,
+          user_id,
+          seen_at
+        )
+        `
       )
       .eq('conversation_id', conversation.id)
       .order('created_at', { ascending: true });
 
     if (error) {
       console.error("[ChatMessageArea] Error fetching messages:", error);
-      showError("Failed to load messages."); // This is the toast message the user is seeing
+      showError("Failed to load messages.");
       setMessages([]);
     } else {
-      // Explicitly map the data to ensure 'profiles' is a single object
       const fetchedMessages: SupabaseMessage[] = (data || []).map((msg: any) => ({
         id: msg.id,
         conversation_id: msg.conversation_id,
         sender_id: msg.sender_id,
         content: msg.content,
         created_at: msg.created_at,
-        // Default empty profile and receipts for now
-        profiles: { id: msg.sender_id, first_name: null, last_name: null, avatar_url: null },
-        message_receipts: [],
+        profiles: Array.isArray(msg.profiles) ? msg.profiles[0] : msg.profiles,
+        message_receipts: msg.message_receipts || [],
       }));
       setMessages(fetchedMessages);
 
@@ -134,60 +143,10 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
 
       if (unseenMessageIds.length > 0) {
         await markMessagesAsSeen(unseenMessageIds);
-        // Re-fetch messages to show updated seen status for the current user
-        fetchMessages();
       }
     }
     setIsLoadingMessages(false);
   }, [conversation.id, currentUser, markMessagesAsSeen]);
-
-  // Effect for fetching messages and setting up real-time listeners
-  useEffect(() => {
-    fetchMessages();
-
-    const messagesChannel = supabase
-      .channel(`public:messages:conversation_id=eq.${conversation.id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversation.id}` },
-        (payload) => {
-          console.log('[ChatMessageArea] Message change received!', payload);
-          fetchMessages();
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'message_receipts', filter: `message_id=in.(${messages.map(m => m.id).join(',')})` },
-        (payload) => {
-          console.log('[ChatMessageArea] New message receipt received!', payload);
-          fetchMessages(); // Re-fetch to update seen status
-        }
-      )
-      .subscribe();
-
-    const typingChannel = supabase
-      .channel(`public:typing_status:conversation_id=eq.${conversation.id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'typing_status', filter: `conversation_id=eq.${conversation.id}` },
-        (payload) => {
-          console.log('[ChatMessageArea] Typing status change received!', payload);
-          // Fetch typing users to update the list
-          fetchTypingUsers();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(messagesChannel);
-      supabase.removeChannel(typingChannel);
-    };
-  }, [conversation.id, fetchMessages, messages]); // Added messages to dependency array to update filter for receipts
-
-  // Effect for scrolling to bottom when messages change
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
   // Function to fetch typing users
   const fetchTypingUsers = useCallback(async () => {
@@ -229,6 +188,53 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
       console.log("[ChatMessageArea] Fetched active typing users:", activeTypingUsers);
     }
   }, [conversation.id, currentUser]);
+
+  // Effect for fetching messages and setting up real-time listeners
+  useEffect(() => {
+    fetchMessages();
+
+    const messagesChannel = supabase
+      .channel(`public:messages:conversation_id=eq.${conversation.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversation.id}` },
+        (payload) => {
+          console.log('[ChatMessageArea] Message change received!', payload);
+          fetchMessages();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'message_receipts', filter: `conversation_id=eq.${conversation.id}` }, // Filter by conversation_id
+        (payload) => {
+          console.log('[ChatMessageArea] New message receipt received!', payload);
+          fetchMessages(); // Re-fetch to update seen status
+        }
+      )
+      .subscribe();
+
+    const typingChannel = supabase
+      .channel(`public:typing_status:conversation_id=eq.${conversation.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'typing_status', filter: `conversation_id=eq.${conversation.id}` },
+        (payload) => {
+          console.log('[ChatMessageArea] Typing status change received!', payload);
+          fetchTypingUsers(); // Fetch typing users to update the list
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(typingChannel);
+    };
+  }, [conversation.id, fetchMessages, fetchTypingUsers]);
+
+  // Effect for scrolling to bottom when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   // Periodically clean up stale typing indicators
   useEffect(() => {
@@ -366,11 +372,10 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
         ) : (
           <div className="space-y-4">
             {messages.map((message) => {
-              // Use a placeholder profile for now since joins are removed
-              const senderProfile = { id: message.sender_id, first_name: "User", last_name: "", avatar_url: `https://api.dicebear.com/7.x/lorelei/svg?seed=User` };
+              const senderProfile = message.profiles || { id: message.sender_id, first_name: "User", last_name: "", avatar_url: `https://api.dicebear.com/7.x/lorelei/svg?seed=User` };
               const senderName = senderProfile?.first_name || "Unknown";
               const senderAvatar = senderProfile?.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${senderName}`;
-              const seenByAll = isMessageSeenByAllOthers(message); // This will always be false for now
+              const seenByAll = isMessageSeenByAllOthers(message);
 
               return (
                 <div
