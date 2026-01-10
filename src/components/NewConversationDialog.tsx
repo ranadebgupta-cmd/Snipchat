@@ -18,6 +18,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/integrations/supabase/auth";
 import { showError, showSuccess } from "@/utils/toast";
 import { User } from "@supabase/supabase-js";
+import { Badge } from "@/components/ui/badge"; // Assuming Badge is available
+import { X } from "lucide-react"; // Assuming X icon is available
+import { Spinner } from "./Spinner"; // Import the Spinner component
 
 interface Profile {
   id: string;
@@ -42,6 +45,7 @@ export const NewConversationDialog = ({
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [selectedParticipants, setSelectedParticipants] = useState<Profile[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
     const searchUsers = async () => {
@@ -50,6 +54,7 @@ export const NewConversationDialog = ({
         return;
       }
 
+      setIsSearching(true);
       const { data, error } = await supabase
         .from("profiles")
         .select("id, first_name, last_name, avatar_url")
@@ -63,6 +68,7 @@ export const NewConversationDialog = ({
       } else {
         setSearchResults(data || []);
       }
+      setIsSearching(false);
     };
 
     const handler = setTimeout(() => {
@@ -149,15 +155,21 @@ export const NewConversationDialog = ({
             placeholder="Search users by first name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            className="focus-visible:ring-primary"
           />
           <ScrollArea className="h-[200px] w-full rounded-md border">
-            {searchResults.length === 0 && searchTerm.trim() ? (
+            {isSearching ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <Spinner size="sm" />
+                <p className="ml-2">Searching...</p>
+              </div>
+            ) : searchResults.length === 0 && searchTerm.trim() ? (
               <p className="p-4 text-center text-muted-foreground">No users found.</p>
             ) : (
               searchResults.map((profile) => (
                 <div
                   key={profile.id}
-                  className="flex items-center p-3 hover:bg-accent cursor-pointer"
+                  className="flex items-center p-3 hover:bg-accent cursor-pointer transition-colors duration-200"
                   onClick={() =>
                     handleSelectParticipant(
                       profile,
@@ -170,7 +182,7 @@ export const NewConversationDialog = ({
                     onCheckedChange={(checked) =>
                       handleSelectParticipant(profile, checked as boolean)
                     }
-                    className="mr-3"
+                    className="mr-3 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
                   />
                   <Avatar className="h-8 w-8 mr-3">
                     <AvatarImage
@@ -191,12 +203,12 @@ export const NewConversationDialog = ({
               <p className="text-sm font-medium mb-2">Selected:</p>
               <div className="flex flex-wrap gap-2">
                 {selectedParticipants.map((p) => (
-                  <Badge key={p.id} variant="secondary" className="flex items-center">
+                  <Badge key={p.id} variant="secondary" className="flex items-center bg-primary text-primary-foreground">
                     {`${p.first_name || ""} ${p.last_name || ""}`.trim()}
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-4 w-4 ml-1"
+                      className="h-4 w-4 ml-1 text-primary-foreground hover:bg-primary/80"
                       onClick={() => handleSelectParticipant(p, false)}
                     >
                       <X className="h-3 w-3" />
@@ -209,11 +221,11 @@ export const NewConversationDialog = ({
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose}>
+          <Button variant="outline" onClick={handleClose} disabled={isCreating}>
             Cancel
           </Button>
           <Button onClick={handleCreateConversation} disabled={selectedParticipants.length === 0 || isCreating}>
-            {isCreating ? "Creating..." : "Create Chat"}
+            {isCreating ? <Spinner size="sm" className="text-primary-foreground" /> : "Create Chat"}
           </Button>
         </DialogFooter>
       </DialogContent>

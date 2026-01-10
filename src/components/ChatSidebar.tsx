@@ -6,12 +6,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
-import { Plus, User as UserIcon, LogOut } from "lucide-react"; // Import LogOut icon
+import { Plus, User as UserIcon, LogOut } from "lucide-react";
 import { SupabaseConversation } from "./ChatApp";
 import { NewConversationDialog } from "./NewConversationDialog";
 import { UserProfileDialog } from "./UserProfileDialog";
-import { supabase } from "@/integrations/supabase/client"; // Import supabase client
-import { showError, showSuccess } from "@/utils/toast"; // Import toast utilities
+import { supabase } from "@/integrations/supabase/client";
+import { showError, showSuccess } from "@/utils/toast";
+import { Spinner } from "./Spinner"; // Import the Spinner component
 
 interface ChatSidebarProps {
   conversations: SupabaseConversation[];
@@ -70,20 +71,20 @@ export const ChatSidebar = ({
   };
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="p-4 border-b border-border flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Chats</h2>
+    <div className="h-full flex flex-col bg-sidebar text-sidebar-foreground">
+      <div className="p-4 border-b border-sidebar-border flex justify-between items-center bg-sidebar-primary text-sidebar-primary-foreground">
+        <h2 className="text-xl font-semibold">SnipChat</h2>
         <div className="flex space-x-2">
-          <Button variant="ghost" size="icon" onClick={() => setIsProfileDialogOpen(true)}>
+          <Button variant="ghost" size="icon" onClick={() => setIsProfileDialogOpen(true)} className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
             <UserIcon className="h-5 w-5" />
             <span className="sr-only">View Profile</span>
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => setIsNewChatDialogOpen(true)}>
+          <Button variant="ghost" size="icon" onClick={() => setIsNewChatDialogOpen(true)} className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
             <Plus className="h-5 w-5" />
             <span className="sr-only">Start new chat</span>
           </Button>
-          <Button variant="ghost" size="icon" onClick={handleLogout} disabled={isLoggingOut}>
-            <LogOut className="h-5 w-5" />
+          <Button variant="ghost" size="icon" onClick={handleLogout} disabled={isLoggingOut} className="hover:bg-destructive hover:text-destructive-foreground">
+            {isLoggingOut ? <Spinner size="sm" className="text-destructive-foreground" /> : <LogOut className="h-5 w-5" />}
             <span className="sr-only">Log out</span>
           </Button>
         </div>
@@ -101,8 +102,10 @@ export const ChatSidebar = ({
               <div
                 key={conversation.id}
                 className={cn(
-                  "flex items-center p-4 cursor-pointer hover:bg-accent",
-                  selectedConversationId === conversation.id && "bg-accent"
+                  "flex items-center p-4 cursor-pointer border-b border-sidebar-border last:border-b-0 transition-colors duration-200",
+                  selectedConversationId === conversation.id
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "hover:bg-sidebar-accent/50"
                 )}
                 onClick={() => onSelectConversation(conversation.id)}
               >

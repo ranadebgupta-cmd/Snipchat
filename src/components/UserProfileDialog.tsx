@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/integrations/supabase/auth";
 import { showError, showSuccess } from "@/utils/toast";
 import { User } from "@supabase/supabase-js";
+import { Spinner } from "./Spinner"; // Import the Spinner component
 
 interface Profile {
   id: string;
@@ -123,7 +124,10 @@ export const UserProfileDialog = ({ isOpen, onClose }: UserProfileDialogProps) =
           </DialogDescription>
         </DialogHeader>
         {isLoading ? (
-          <div className="py-8 text-center text-muted-foreground">Loading profile...</div>
+          <div className="py-8 text-center text-muted-foreground flex items-center justify-center">
+            <Spinner size="md" />
+            <p className="ml-2">Loading profile...</p>
+          </div>
         ) : (
           <div className="grid gap-4 py-4">
             <div className="flex justify-center mb-4">
@@ -140,7 +144,7 @@ export const UserProfileDialog = ({ isOpen, onClose }: UserProfileDialogProps) =
                 id="first-name"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                className="col-span-3"
+                className="col-span-3 focus-visible:ring-primary"
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
@@ -151,7 +155,7 @@ export const UserProfileDialog = ({ isOpen, onClose }: UserProfileDialogProps) =
                 id="last-name"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                className="col-span-3"
+                className="col-span-3 focus-visible:ring-primary"
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
@@ -163,7 +167,7 @@ export const UserProfileDialog = ({ isOpen, onClose }: UserProfileDialogProps) =
                 value={avatarUrl}
                 onChange={(e) => setAvatarUrl(e.target.value)}
                 placeholder="e.g., https://example.com/avatar.png"
-                className="col-span-3"
+                className="col-span-3 focus-visible:ring-primary"
               />
             </div>
           </div>
@@ -173,7 +177,7 @@ export const UserProfileDialog = ({ isOpen, onClose }: UserProfileDialogProps) =
             Cancel
           </Button>
           <Button onClick={handleSaveProfile} disabled={isLoading || isSaving}>
-            {isSaving ? "Saving..." : "Save Changes"}
+            {isSaving ? <Spinner size="sm" className="text-primary-foreground" /> : "Save Changes"}
           </Button>
         </DialogFooter>
       </DialogContent>

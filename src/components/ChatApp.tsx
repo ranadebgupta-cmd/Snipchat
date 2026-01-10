@@ -7,6 +7,7 @@ import { useAuth } from "@/integrations/supabase/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { showError } from "@/utils/toast";
 import { User } from "@supabase/supabase-js";
+import { Spinner } from "./Spinner"; // Import the Spinner component
 
 // Define types for Supabase data
 interface Profile {
@@ -168,7 +169,8 @@ export const ChatApp = () => {
   if (isAuthLoading || isLoadingConversations) {
     return (
       <div className="flex items-center justify-center h-screen w-screen bg-background">
-        <p className="text-lg text-muted-foreground">Loading chat...</p>
+        <Spinner size="lg" />
+        <p className="ml-3 text-lg text-muted-foreground">Loading chat...</p>
       </div>
     );
   }

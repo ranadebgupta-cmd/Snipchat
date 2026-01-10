@@ -9,7 +9,8 @@ import { Send } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { showError } from "@/utils/toast";
-import { SupabaseConversation } from "./ChatApp"; // Import the shared type
+import { SupabaseConversation } from "./ChatApp";
+import { Spinner } from "./Spinner"; // Import the Spinner component
 
 interface Profile {
   id: string;
@@ -37,6 +38,7 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState<SupabaseMessage[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -101,15 +103,17 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = () => {
-    if (messageInput.trim()) {
-      onSendMessage(messageInput); // This calls the parent's onSendMessage which inserts into DB
-      setMessageInput("");
-    }
+  const handleSend = async () => {
+    if (!messageInput.trim()) return;
+
+    setIsSendingMessage(true);
+    await onSendMessage(messageInput); // This calls the parent's onSendMessage which inserts into DB
+    setMessageInput("");
+    setIsSendingMessage(false);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" && messageInput.trim() && !isSendingMessage) {
       handleSend();
     }
   };
@@ -127,17 +131,20 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
 
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center p-4 border-b border-border">
-        <Avatar className="h-9 w-9">
+    <div className="flex flex-col h-full bg-background">
+      <div className="flex items-center p-4 border-b border-border bg-card text-card-foreground shadow-sm">
+        <Avatar className="h-10 w-10">
           <AvatarImage src={displayAvatar} alt={displayName} />
           <AvatarFallback>{displayName.charAt(0)}</AvatarFallback>
         </Avatar>
         <h3 className="ml-3 text-lg font-semibold">{displayName}</h3>
       </div>
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea className="flex-1 p-4 bg-muted/20">
         {isLoadingMessages ? (
-          <div className="flex items-center justify-center h-full text-muted-foreground">Loading messages...</div>
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            <Spinner size="md" />
+            <p className="ml-2">Loading messages...</p>
+          </div>
         ) : (
           <div className="space-y-4">
             {messages.map((message) => {
@@ -164,11 +171,11 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
                       </Avatar>
                     )}
                     <div
-                      className={`p-3 rounded-lg ${
+                      className={`p-3 rounded-xl ${
                         message.sender_id === currentUser.id
                           ? "bg-primary text-primary-foreground rounded-br-none"
-                          : "bg-muted text-muted-foreground rounded-bl-none"
-                      }`}
+                          : "bg-secondary text-secondary-foreground rounded-bl-none"
+                      } shadow-md`}
                     >
                       <p className="text-sm">{message.content}</p>
                       <span className="text-xs opacity-75 mt-1 block text-right">
@@ -183,16 +190,17 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
           </div>
         )}
       </ScrollArea>
-      <div className="p-4 border-t border-border flex items-center">
+      <div className="p-4 border-t border-border flex items-center bg-card">
         <Input
           placeholder="Type your message..."
           value={messageInput}
           onChange={(e) => setMessageInput(e.target.value)}
           onKeyPress={handleKeyPress}
-          className="flex-1 mr-2"
+          className="flex-1 mr-2 focus-visible:ring-primary"
+          disabled={isSendingMessage}
         />
-        <Button onClick={handleSend} disabled={!messageInput.trim()}>
-          <Send className="h-4 w-4" />
+        <Button onClick={handleSend} disabled={!messageInput.trim() || isSendingMessage}>
+          {isSendingMessage ? <Spinner size="sm" className="text-primary-foreground" /> : <Send className="h-4 w-4" />}
           <span className="sr-only">Send message</span>
         </Button>
       </div>
