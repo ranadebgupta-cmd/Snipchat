@@ -3,8 +3,10 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { ChatApp } from "./components/ChatApp"; // Import ChatApp
+import { ChatApp } from "./components/ChatApp";
 import NotFound from "./pages/NotFound";
+import Login from "./pages/Login"; // Import the new Login page
+import { SessionContextProvider } from "./components/SessionContextProvider"; // Import the new SessionContextProvider
 
 const queryClient = new QueryClient();
 
@@ -14,11 +16,14 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<ChatApp />} /> {/* Render ChatApp at the root */}
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <SessionContextProvider> {/* Wrap the routes with SessionContextProvider */}
+          <Routes>
+            <Route path="/login" element={<Login />} /> {/* Route for the Login page */}
+            <Route path="/" element={<ChatApp />} /> {/* Protected route for ChatApp */}
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </SessionContextProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
