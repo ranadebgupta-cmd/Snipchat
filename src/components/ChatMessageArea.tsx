@@ -110,7 +110,7 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
       .order('created_at', { ascending: true });
 
     if (error) {
-      console.error("Error fetching messages:", error);
+      console.error("[ChatMessageArea] Error fetching messages:", error);
       showError("Failed to load messages.");
       setMessages([]);
     } else {
@@ -226,6 +226,7 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
           return (now - lastTyped) < TYPING_INDICATOR_TIMEOUT_MS;
         });
       setTypingUsers(activeTypingUsers);
+      console.log("[ChatMessageArea] Fetched active typing users:", activeTypingUsers);
     }
   }, [conversation.id, currentUser]);
 
@@ -242,7 +243,8 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
   const updateTypingStatus = useCallback(async (isTyping: boolean) => {
     if (!currentUser || !conversation.id) return;
 
-    const { error } = await supabase
+    console.log(`[ChatMessageArea] Updating typing status for user ${currentUser.id} in conversation ${conversation.id} to isTyping: ${isTyping}`);
+    const { data, error } = await supabase
       .from('typing_status')
       .upsert(
         {
@@ -255,6 +257,8 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
 
     if (error) {
       console.error("[ChatMessageArea] Error updating typing status:", error);
+    } else {
+      console.log("[ChatMessageArea] Typing status upsert successful:", data);
     }
   }, [currentUser, conversation.id]);
 
@@ -318,6 +322,9 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
   const typingIndicatorText = typingUsers.length > 0
     ? `${typingUsers.map(u => u.profiles?.first_name || 'Someone').join(', ')} is typing...`
     : '';
+
+  console.log("[ChatMessageArea] Current typingUsers state:", typingUsers);
+  console.log("[ChatMessageArea] typingIndicatorText:", typingIndicatorText);
 
   return (
     <div className="flex flex-col h-full bg-background">

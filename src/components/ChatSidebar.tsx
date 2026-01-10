@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
-import { Plus, User as UserIcon, LogOut } from "lucide-react";
+import { Plus, User as UserIcon, LogOut } from "lucide-react"; // Import LogOut icon
 import { SupabaseConversation } from "./ChatApp";
 import { NewConversationDialog } from "./NewConversationDialog";
 import { UserProfileDialog } from "./UserProfileDialog";
@@ -29,7 +29,7 @@ export const ChatSidebar = ({
 }: ChatSidebarProps) => {
   const [isNewChatDialogOpen, setIsNewChatDialogOpen] = useState(false);
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false); // State for logout loading
 
   const getConversationDisplayName = (conversation: SupabaseConversation) => {
     if (conversation.name) {

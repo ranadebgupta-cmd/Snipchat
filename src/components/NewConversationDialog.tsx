@@ -20,7 +20,7 @@ import { showError, showSuccess } from "@/utils/toast";
 import { User } from "@supabase/supabase-js";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
-import { Spinner } from "./Spinner";
+import { Spinner } from "./Spinner"; // Import the Spinner component
 import { Label } from "@/components/ui/label"; // Import Label for the group name input
 
 interface Profile {
@@ -47,7 +47,7 @@ export const NewConversationDialog = ({
   const [selectedParticipants, setSelectedParticipants] = useState<Profile[]>([]);
   const [groupName, setGroupName] = useState(""); // New state for group name
   const [isCreating, setIsCreating] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
+  const [isSearching, setIsSearching] = useState(false); // State for search loading
 
   useEffect(() => {
     const searchUsers = async () => {
@@ -56,7 +56,7 @@ export const NewConversationDialog = ({
         return;
       }
 
-      setIsSearching(true);
+      setIsSearching(true); // Set searching state
       let query = supabase
         .from("profiles")
         .select("id, first_name, last_name, avatar_url")
@@ -79,7 +79,7 @@ export const NewConversationDialog = ({
       } else {
         setSearchResults(data || []);
       }
-      setIsSearching(false);
+      setIsSearching(false); // Reset searching state
     };
 
     const handler = setTimeout(() => {
