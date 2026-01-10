@@ -114,19 +114,21 @@ export const NewConversationDialog = ({
 
     setIsCreating(true);
     try {
+      console.log("[NewConversationDialog] Attempting to create conversation...");
       // 1. Create the conversation with minimal data to test the core insert
       const { data: conversationData, error: conversationError } = await supabase
         .from("conversations")
-        .insert({}) // Insert an empty object to rely entirely on default values
+        .insert({ name: null }) // Explicitly set name to null
         .select("id")
         .single();
 
       if (conversationError || !conversationData) {
+        console.error("[NewConversationDialog] Error creating conversation:", conversationError);
         throw new Error(conversationError?.message || "Failed to create conversation.");
       }
 
       const conversationId = conversationData.id;
-      console.log("Successfully created conversation with ID:", conversationId); // Add logging
+      console.log("[NewConversationDialog] Successfully created conversation with ID:", conversationId); // Add logging
 
       // --- TEMPORARILY COMMENTING OUT PARTICIPANTS INSERT FOR DEBUGGING ---
       // // 2. Add current user as participant
@@ -150,7 +152,7 @@ export const NewConversationDialog = ({
       onConversationCreated(conversationId);
       handleClose();
     } catch (error: any) {
-      console.error("Error creating conversation:", error);
+      console.error("[NewConversationDialog] Error creating conversation:", error);
       showError(error.message || "An unexpected error occurred.");
     } finally {
       setIsCreating(false);
