@@ -18,9 +18,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/integrations/supabase/auth";
 import { showError, showSuccess } from "@/utils/toast";
 import { User } from "@supabase/supabase-js";
-import { Badge } from "@/components/ui/badge"; // Assuming Badge is available
-import { X } from "lucide-react"; // Assuming X icon is available
-import { Spinner } from "./Spinner"; // Import the Spinner component
+import { Badge } from "@/components/ui/badge";
+import { X } from "lucide-react";
+import { Spinner } from "./Spinner";
+import { Label } from "@/components/ui/label"; // Import Label for the group name input
 
 interface Profile {
   id: string;
@@ -44,6 +45,7 @@ export const NewConversationDialog = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [selectedParticipants, setSelectedParticipants] = useState<Profile[]>([]);
+  const [groupName, setGroupName] = useState(""); // New state for group name
   const [isCreating, setIsCreating] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
 
@@ -92,12 +94,21 @@ export const NewConversationDialog = ({
       return;
     }
 
+    // If more than one participant (excluding current user) is selected, or if a group name is provided, it's a group chat.
+    // Otherwise, it's a 1-on-1 chat.
+    const isGroupChat = selectedParticipants.length > 1 || groupName.trim() !== "";
+
+    if (isGroupChat && !groupName.trim()) {
+      showError("Please provide a group name for group chats.");
+      return;
+    }
+
     setIsCreating(true);
     try {
       // 1. Create the conversation
       const { data: conversationData, error: conversationError } = await supabase
         .from("conversations")
-        .insert({}) // No name for 1-on-1 chats, can add later for groups
+        .insert({ name: isGroupChat ? groupName.trim() : null }) // Insert group name if it's a group chat
         .select("id")
         .single();
 
@@ -138,6 +149,7 @@ export const NewConversationDialog = ({
     setSearchTerm("");
     setSearchResults([]);
     setSelectedParticipants([]);
+    setGroupName(""); // Reset group name
     onClose();
   };
 
@@ -147,10 +159,22 @@ export const NewConversationDialog = ({
         <DialogHeader>
           <DialogTitle>Start New Chat</DialogTitle>
           <DialogDescription>
-            Search for users and select them to start a new conversation.
+            Search for users and select them to start a new conversation. Provide a group name for group chats.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
+          {selectedParticipants.length > 0 && ( // Show group name input if participants are selected
+            <div>
+              <Label htmlFor="group-name" className="mb-2 block">Group Name (Optional for 1-on-1, Required for groups)</Label>
+              <Input
+                id="group-name"
+                placeholder="Enter group name..."
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                className="focus-visible:ring-primary"
+              />
+            </div>
+          )}
           <Input
             placeholder="Search users by first name..."
             value={searchTerm}
