@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">bright-raccoon-nap</string>
+    <string name="title_activity_main">bright-raccoon-nap</string>
+    <string name="package_name">com.example.brightraccoonnap</string>
+    <string name="custom_url_scheme">com.example.brightraccoonnap</string>
+</resources>
