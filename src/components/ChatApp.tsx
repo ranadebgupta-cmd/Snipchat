@@ -51,6 +51,7 @@ export const ChatApp = () => {
 
     const fetchConversations = async () => {
       setIsLoadingConversations(true);
+      console.log("[ChatApp] Attempting to fetch conversations for user:", user.id);
       const { data, error } = await supabase
         .from('conversation_participants')
         .select(
@@ -90,9 +91,10 @@ export const ChatApp = () => {
         // as they are now handled within the nested 'messages' select.
 
       if (error) {
-        console.error("Error fetching conversations:", error);
-        showError("Failed to load conversations.");
+        console.error("[ChatApp] Error fetching conversations:", error);
+        showError(`Failed to load conversations: ${error.message}`); // More detailed error
       } else {
+        console.log("[ChatApp] Successfully fetched raw conversations data:", data);
         // Flatten the data structure and process it
         const processedConversations: SupabaseConversation[] = (data || [])
           .map((cp: any) => {
@@ -130,6 +132,7 @@ export const ChatApp = () => {
         if (processedConversations.length > 0 && !selectedConversationId) {
           setSelectedConversationId(processedConversations[0].id);
         }
+        console.log("[ChatApp] Processed conversations:", processedConversations);
       }
       setIsLoadingConversations(false);
     };
