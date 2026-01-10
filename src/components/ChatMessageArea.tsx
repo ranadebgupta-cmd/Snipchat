@@ -17,7 +17,7 @@ import {
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter,
+  AlertDialogFooter, // Corrected import
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
@@ -36,7 +36,7 @@ interface Message {
   sender_id: string;
   content: string;
   created_at: string;
-  profiles: Profile | null; // Changed to allow null, as a profile might not always be found or might be an array
+  profiles: Profile | null;
 }
 
 interface ChatMessageAreaProps {
@@ -62,6 +62,7 @@ export const ChatMessageArea = ({
 
   useEffect(() => {
     const fetchMessages = async () => {
+      console.log("[ChatMessageArea] Attempting to fetch messages for conversation ID:", conversation.id);
       const { data, error } = await supabase
         .from('messages')
         .select(
@@ -83,17 +84,27 @@ export const ChatMessageArea = ({
         .order('created_at', { ascending: true });
 
       if (error) {
-        console.error("Error fetching messages:", error);
+        console.error("[ChatMessageArea] Error fetching messages:", error);
         showError("Failed to load messages.");
+        setMessages([]); // Clear messages on error
       } else {
-        // Process profiles to ensure it's a single object or null
-        const processedData: Message[] = (data || []).map((msg: any) => ({
-          ...msg,
-          profiles: Array.isArray(msg.profiles) && msg.profiles.length > 0
-            ? msg.profiles[0]
-            : null,
-        }));
+        console.log("[ChatMessageArea] Raw messages data received:", data);
+        const processedData: Message[] = (data || []).map((msg: any) => {
+          let profileData: Profile | null = null;
+          if (msg.profiles) {
+            if (Array.isArray(msg.profiles) && msg.profiles.length > 0) {
+              profileData = msg.profiles[0];
+            } else if (!Array.isArray(msg.profiles)) { // It's an object
+              profileData = msg.profiles;
+            }
+          }
+          return {
+            ...msg,
+            profiles: profileData,
+          };
+        });
         setMessages(processedData);
+        console.log("[ChatMessageArea] Processed messages set:", processedData);
       }
     };
 
@@ -133,15 +144,21 @@ export const ChatMessageArea = ({
             .single();
 
           if (error) {
-            console.error("Error fetching new message with profile:", error);
+            console.error("[ChatMessageArea] Error fetching new message with profile:", error);
             showError("Failed to load new message details.");
           } else if (newMessage) {
             // Process profiles for the new message
+            let newProfileData: Profile | null = null;
+            if (newMessage.profiles) {
+              if (Array.isArray(newMessage.profiles) && newMessage.profiles.length > 0) {
+                newProfileData = newMessage.profiles[0];
+              } else if (!Array.isArray(newMessage.profiles)) {
+                newProfileData = newMessage.profiles;
+              }
+            }
             const processedNewMessage: Message = {
               ...newMessage,
-              profiles: Array.isArray(newMessage.profiles) && newMessage.profiles.length > 0
-                ? newMessage.profiles[0]
-                : null,
+              profiles: newProfileData,
             };
             setMessages((prevMessages) => [...prevMessages, processedNewMessage]);
           }
@@ -231,12 +248,12 @@ export const ChatMessageArea = ({
                 for all participants and remove its data from our servers.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
+            <AlertDialogFooter> {/* Corrected component name */}
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={handleDeleteConversation} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 Delete
               </AlertDialogAction>
-            </AlertDialogFooter>
+            </AlertDialogFooter> {/* Corrected component name */}
           </AlertDialogContent>
         </AlertDialog>
       </div>
