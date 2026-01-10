@@ -46,7 +46,9 @@ export const ChatApp = () => {
     const fetchConversations = async () => {
       setIsLoadingConversations(true);
       console.log("[ChatApp] Attempting to fetch conversations for user:", user.id);
-      const { data, error } = await supabase
+      
+      // 1. Fetch basic conversation data and participants
+      const { data: rawConversationsData, error: conversationsError } = await supabase
         .from('conversation_participants')
         .select(
           `
@@ -63,45 +65,60 @@ export const ChatApp = () => {
                 avatar_url
               )
             )
-          ),
-          conversation_with_last_message (
-            content,
-            sender_id,
-            message_created_at
           )
           `
         )
         .eq('user_id', user.id);
 
-      if (error) {
-        console.error("[ChatApp] Error fetching conversations:", error);
-        showError(`Failed to load conversations: ${error.message}`); // More detailed error
-      } else {
-        console.log("[ChatApp] Successfully fetched raw conversations data:", data);
-        // Flatten the data structure and process it
-        const processedConversations: SupabaseConversation[] = (data || [])
-          .map((cp: any) => {
-            const conv = cp.conversations;
-            const lastMessage = cp.conversation_with_last_message; // Data from the view
-            if (!conv) return null;
+      if (conversationsError) {
+        console.error("[ChatApp] Error fetching conversations:", conversationsError);
+        showError(`Failed to load conversations: ${conversationsError.message}`);
+        setIsLoadingConversations(false);
+        return;
+      }
 
-            // Process conversation participants to ensure 'profiles' is a single object
-            const processedParticipants = (conv.conversation_participants || []).map((participant: any) => ({
-              user_id: participant.user_id,
-              profiles: Array.isArray(participant.profiles) ? participant.profiles[0] : participant.profiles,
-            }));
+      const rawConversations = rawConversationsData || [];
+      const conversationIds = rawConversations.map((cp: any) => cp.conversations.id);
 
-            return {
-              id: conv.id,
-              name: conv.name,
-              created_at: conv.created_at,
-              conversation_participants: processedParticipants,
-              latest_message_content: lastMessage?.content || null,
-              latest_message_sender_id: lastMessage?.sender_id || null,
-              latest_message_created_at: lastMessage?.message_created_at || null,
-            };
-          })
-          .filter(Boolean) as SupabaseConversation[]; // Cast after filtering nulls
+      // 2. Fetch latest messages for all these conversations using the new view
+      const { data: latestMessagesData, error: latestMessagesError } = await supabase
+        .from('conversation_last_message')
+        .select('*')
+        .in('conversation_id', conversationIds);
+
+      if (latestMessagesError) {
+        console.error("[ChatApp] Error fetching latest messages:", latestMessagesError);
+        showError(`Failed to load latest messages: ${latestMessagesError.message}`);
+        setIsLoadingConversations(false);
+        return;
+      }
+
+      const latestMessagesMap = new Map(latestMessagesData?.map(msg => [msg.conversation_id, msg]));
+
+      // 3. Process and combine the data
+      const processedConversations: SupabaseConversation[] = rawConversations
+        .map((cp: any) => {
+          const conv = cp.conversations;
+          if (!conv) return null;
+
+          const processedParticipants = (conv.conversation_participants || []).map((participant: any) => ({
+            user_id: participant.user_id,
+            profiles: Array.isArray(participant.profiles) ? participant.profiles[0] : participant.profiles,
+          }));
+
+          const lastMessage = latestMessagesMap.get(conv.id);
+
+          return {
+            id: conv.id,
+            name: conv.name,
+            created_at: conv.created_at,
+            conversation_participants: processedParticipants,
+            latest_message_content: lastMessage?.latest_message_content || null,
+            latest_message_sender_id: lastMessage?.latest_message_sender_id || null,
+            latest_message_created_at: lastMessage?.latest_message_created_at || null,
+          };
+        })
+        .filter(Boolean) as SupabaseConversation[];
 
         // Sort conversations by the latest message's created_at for display
         processedConversations.sort((a, b) => {
@@ -115,7 +132,6 @@ export const ChatApp = () => {
           setSelectedConversationId(processedConversations[0].id);
         }
         console.log("[ChatApp] Processed conversations:", processedConversations);
-      }
       setIsLoadingConversations(false);
     };
 
