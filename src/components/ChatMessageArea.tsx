@@ -402,7 +402,7 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser, onCo
           </Button>
         )}
       </div>
-      <ScrollArea className="flex-1 p-4 bg-muted/20">
+      <ScrollArea className="flex-1 p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
         {isLoadingMessages ? (
           <div className="flex items-center justify-center h-full text-muted-foreground">
             <Spinner size="md" />
@@ -437,8 +437,8 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser, onCo
                     <div
                       className={`p-3 rounded-xl relative ${
                         message.sender_id === currentUser.id
-                          ? "bg-primary text-primary-foreground rounded-br-none"
-                          : "bg-secondary text-secondary-foreground rounded-bl-none"
+                          ? "bg-blue-600 text-white rounded-br-none" // Vibrant blue for current user
+                          : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100 rounded-bl-none" // Distinct gray for others
                       } shadow-md`}
                     >
                       <p className="text-sm">{message.content}</p>
@@ -447,14 +447,14 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser, onCo
                           {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                         {message.sender_id === currentUser.id && seenByAll && (
-                          <CheckCheck className="h-3 w-3 ml-1 text-primary-foreground" />
+                          <CheckCheck className="h-3 w-3 ml-1 text-white" />
                         )}
                       </div>
                       {message.sender_id === currentUser.id && (
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute -top-2 -right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-primary-foreground bg-primary/80 hover:bg-primary"
+                          className="absolute -top-2 -right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-red-500 bg-white/80 hover:bg-white dark:bg-gray-800/80 dark:hover:bg-gray-800"
                           onClick={() => handleDeleteClick(message.id)}
                         >
                           <Trash2 className="h-3 w-3" />
@@ -471,7 +471,7 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser, onCo
         )}
       </ScrollArea>
       {typingIndicatorText && (
-        <div className="p-2 text-sm text-muted-foreground bg-muted/20">
+        <div className="p-2 text-sm text-muted-foreground bg-muted/20 dark:bg-gray-800/50 rounded-t-lg">
           {typingIndicatorText}
         </div>
       )}
@@ -481,11 +481,11 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser, onCo
           value={messageInput}
           onChange={handleMessageInputChange}
           onKeyPress={handleKeyPress}
-          className="flex-1 mr-2 focus-visible:ring-primary"
+          className="flex-1 mr-2 rounded-full px-4 py-2 border focus-visible:ring-primary focus-visible:ring-offset-0"
           disabled={isSendingMessage}
         />
-        <Button onClick={handleSend} disabled={!messageInput.trim() || isSendingMessage}>
-          {isSendingMessage ? <Spinner size="sm" className="text-primary-foreground" /> : <Send className="h-4 w-4" />}
+        <Button onClick={handleSend} disabled={!messageInput.trim() || isSendingMessage} className="rounded-full p-2 h-10 w-10">
+          {isSendingMessage ? <Spinner size="sm" className="text-primary-foreground" /> : <Send className="h-5 w-5" />}
           <span className="sr-only">Send message</span>
         </Button>
       </div>
