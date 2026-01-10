@@ -4,8 +4,8 @@ import React from "react";
 import { User } from "@supabase/supabase-js";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { SupabaseConversation } from "@/components/ChatApp"; // Confirmed import path
-import { PlusCircle } from "lucide-react";
+import { SupabaseConversation } from "@/components/ChatApp";
+import { PlusCircle, LogOut } from "lucide-react"; // Import LogOut icon
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -188,57 +188,76 @@ export const ChatSidebar = ({
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        throw error;
+      }
+      showSuccess("You have been logged out successfully!");
+    } catch (error: any) {
+      console.error("[ChatSidebar] Error logging out:", error);
+      showError(`Failed to log out: ${error.message || "Unknown error"}`);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full border-r bg-sidebar text-sidebar-foreground">
       <div className="p-4 border-b flex items-center justify-between">
         <h2 className="text-xl font-semibold">Chats</h2>
-        <Dialog open={isNewChatDialogOpen} onOpenChange={setIsNewChatDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-sidebar-foreground hover:text-sidebar-primary">
-              <PlusCircle className="h-5 w-5" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Create New Chat</DialogTitle>
-              <DialogDescription>
-                Start a new conversation. You can create a group chat or a 1-on-1 chat.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="chatName" className="text-right">
-                  Chat Name (Optional)
-                </Label>
-                <Input
-                  id="chatName"
-                  value={newChatName}
-                  onChange={(e) => setNewChatName(e.target.value)}
-                  className="col-span-3"
-                  placeholder="e.g., Team Project Discussion"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="participantEmail" className="text-right">
-                  Add Participant (Email)
-                </Label>
-                <Input
-                  id="participantEmail"
-                  type="email"
-                  value={newChatParticipantEmail}
-                  onChange={(e) => setNewChatParticipantEmail(e.target.value)}
-                  className="col-span-3"
-                  placeholder="e.g., user@example.com"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={handleCreateNewChat} disabled={isCreatingChat}>
-                {isCreatingChat ? "Creating..." : "Create Chat"}
+        <div className="flex items-center gap-2"> {/* Group buttons */}
+          <Dialog open={isNewChatDialogOpen} onOpenChange={setIsNewChatDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-sidebar-foreground hover:text-sidebar-primary">
+                <PlusCircle className="h-5 w-5" />
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Create New Chat</DialogTitle>
+                <DialogDescription>
+                  Start a new conversation. You can create a group chat or a 1-on-1 chat.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="chatName" className="text-right">
+                    Chat Name (Optional)
+                  </Label>
+                  <Input
+                    id="chatName"
+                    value={newChatName}
+                    onChange={(e) => setNewChatName(e.target.value)}
+                    className="col-span-3"
+                    placeholder="e.g., Team Project Discussion"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="participantEmail" className="text-right">
+                    Add Participant (Email)
+                  </Label>
+                  <Input
+                    id="participantEmail"
+                    type="email"
+                    value={newChatParticipantEmail}
+                    onChange={(e) => setNewChatParticipantEmail(e.target.value)}
+                    className="col-span-3"
+                    placeholder="e.g., user@example.com"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={handleCreateNewChat} disabled={isCreatingChat}>
+                  {isCreatingChat ? "Creating..." : "Create Chat"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <Button variant="ghost" size="icon" onClick={handleLogout} className="text-sidebar-foreground hover:text-destructive">
+            <LogOut className="h-5 w-5" />
+            <span className="sr-only">Logout</span>
+          </Button>
+        </div>
       </div>
       <ScrollArea className="flex-1 p-2">
         <div className="space-y-1">
