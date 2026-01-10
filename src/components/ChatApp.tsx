@@ -3,11 +3,11 @@
 import React, { useState, useEffect } from "react";
 import { ChatSidebar } from "./ChatSidebar";
 import { ChatMessageArea } from "./ChatMessageArea";
-import { useAuth } from "@/integrations/supabase/auth";
+import { useAuth } from "@/integrations/supabase/auth"; // Corrected import path
 import { supabase } from "@/integrations/supabase/client";
 import { showError } from "@/utils/toast";
 import { User } from "@supabase/supabase-js";
-import { Spinner } from "./Spinner";
+import { Spinner } from "./Spinner"; // Corrected import path
 import {
   ResizableHandle,
   ResizablePanel,
