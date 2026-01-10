@@ -114,10 +114,10 @@ export const NewConversationDialog = ({
 
     setIsCreating(true);
     try {
-      // 1. Create the conversation
+      // 1. Create the conversation with minimal data to test the core insert
       const { data: conversationData, error: conversationError } = await supabase
         .from("conversations")
-        .insert({ name: isGroupChat ? groupName.trim() : null }) // Insert group name if it's a group chat
+        .insert({}) // Insert an empty object to rely entirely on default values
         .select("id")
         .single();
 
