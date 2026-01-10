@@ -79,10 +79,8 @@ export const ChatApp = () => {
                 first_name,
                 last_name,
                 avatar_url
-              ),
-              order=created_at.desc,
-              limit=1
-            )
+              )
+            ).order(created_at, { ascending: false }).limit(1)
           )
           `
         )
