@@ -69,7 +69,7 @@ export const ChatApp = () => {
                 avatar_url
               )
             ),
-            messages (
+            messages!inner(
               id,
               sender_id,
               content,
@@ -80,7 +80,7 @@ export const ChatApp = () => {
                 last_name,
                 avatar_url
               )
-            ).order(created_at, { ascending: false }).limit(1)
+            ).order(created_at.desc).limit(1)
           )
           `
         )
