@@ -90,14 +90,19 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser, onCo
         onOpenDeleteDialog={() => setShowDeleteConversationDialog(true)}
       />
 
-      <ScrollArea className="flex-1 p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
+      <ScrollArea 
+        className="flex-1 p-4 bg-cover bg-center relative"
+        style={{ backgroundImage: `url('https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')` }}
+      >
+        {/* Optional: Add an overlay for better readability if needed */}
+        <div className="absolute inset-0 bg-black opacity-20 dark:opacity-40"></div>
         {isLoadingMessages ? (
-          <div className="flex items-center justify-center h-full text-muted-foreground">
-            <Spinner size="md" />
+          <div className="relative z-10 flex items-center justify-center h-full text-white dark:text-muted-foreground">
+            <Spinner size="md" className="text-white dark:text-muted-foreground" />
             <p className="ml-2">Loading messages...</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="relative z-10 space-y-4">
             {messages.map((message) => (
               <MessageBubble
                 key={message.id}
