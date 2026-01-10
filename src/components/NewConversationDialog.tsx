@@ -115,10 +115,10 @@ export const NewConversationDialog = ({
     setIsCreating(true);
     try {
       console.log("[NewConversationDialog] Attempting to create conversation...");
-      // 1. Create the conversation with minimal data to test the core insert
+      // 1. Create the conversation with minimal data, relying on defaults
       const { data: conversationData, error: conversationError } = await supabase
         .from("conversations")
-        .insert({ name: null }) // Explicitly set name to null
+        .insert({}) // Insert an empty object to rely on default values for all columns
         .select("id")
         .single();
 
@@ -132,25 +132,37 @@ export const NewConversationDialog = ({
       const conversationId = conversationData.id;
       console.log("[NewConversationDialog] Successfully created conversation with ID:", conversationId); // Add logging
 
-      // --- TEMPORARILY COMMENTING OUT PARTICIPANTS INSERT FOR DEBUGGING ---
-      // // 2. Add current user as participant
-      // const participantsToInsert = [{ conversation_id: conversationId, user_id: currentUser.id }];
+      // 2. Add current user as participant
+      const participantsToInsert = [{ conversation_id: conversationId, user_id: currentUser.id }];
 
-      // // 3. Add selected participants
-      // selectedParticipants.forEach((p) => {
-      //   participantsToInsert.push({ conversation_id: conversationId, user_id: p.id });
-      // });
+      // 3. Add selected participants
+      selectedParticipants.forEach((p) => {
+        participantsToInsert.push({ conversation_id: conversationId, user_id: p.id });
+      });
 
-      // const { error: participantsError } = await supabase
-      //   .from("conversation_participants")
-      //   .insert(participantsToInsert);
+      const { error: participantsError } = await supabase
+        .from("conversation_participants")
+        .insert(participantsToInsert);
 
-      // if (participantsError) {
-      //   throw new Error(participantsError?.message || "Failed to add participants.");
-      // }
-      // --- END TEMPORARY COMMENT OUT ---
+      if (participantsError) {
+        console.error("[NewConversationDialog] Error adding participants:", participantsError);
+        throw new Error(participantsError?.message || "Failed to add participants.");
+      }
+      
+      // If it's a group chat and a name was provided, update the conversation name
+      if (isGroupChat && groupName.trim()) {
+        const { error: updateError } = await supabase
+          .from("conversations")
+          .update({ name: groupName.trim() })
+          .eq("id", conversationId);
 
-      showSuccess("Conversation created successfully (participants not added yet for debugging)!");
+        if (updateError) {
+          console.error("[NewConversationDialog] Error updating conversation name:", updateError);
+          throw new Error(updateError?.message || "Failed to set group name.");
+        }
+      }
+
+      showSuccess("Conversation created successfully!");
       onConversationCreated(conversationId);
       handleClose();
     } catch (error: any) {
