@@ -14,25 +14,34 @@ serve(async (req) => {
   try {
     const { email, password, firstName, lastName } = await req.json();
     console.log("[custom-signup] Received signup request for email:", email);
+    console.log("[custom-signup] Request body:", { email, firstName, lastName }); // Log relevant parts of the body
 
     if (!email || !password || !firstName || !lastName) {
+      console.warn("[custom-signup] Missing required fields in request body.");
       return new Response(JSON.stringify({ error: 'Email, password, first name, and last name are required.' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !supabaseServiceRoleKey) {
+      console.error("[custom-signup] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables are not set.");
+      return new Response(JSON.stringify({ error: 'Server configuration error: Supabase environment variables missing.' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     // 1. Create the user using the admin client without sending an email
-    // email_confirm: false is crucial here to prevent Supabase from sending its default email.
     const { data: userCreationData, error: userCreationError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: false, 
+      email_confirm: false,
       user_metadata: {
         first_name: firstName,
         last_name: lastName,
@@ -49,14 +58,18 @@ serve(async (req) => {
 
     const newUser = userCreationData.user;
     if (!newUser) {
+      console.error("[custom-signup] User creation failed, no user data returned from Supabase.");
       return new Response(JSON.stringify({ error: 'User creation failed, no user data returned.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    console.log("[custom-signup] User created successfully:", newUser.id);
 
     // 2. Generate a custom signup confirmation link
     const redirectTo = `${req.headers.get('origin')}/auth/callback`;
+    console.log("[custom-signup] Redirect URL for email confirmation:", redirectTo);
+
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'signup',
       email: newUser.email,
@@ -74,6 +87,7 @@ serve(async (req) => {
     }
 
     const confirmationLink = linkData.properties?.emailRedirectTo;
+    console.log("[custom-signup] Generated confirmation link:", confirmationLink);
 
     // --- IMPORTANT: Placeholder for actual email sending logic ---
     console.log(`[custom-signup] Sending custom SnipChat confirmation email to ${newUser.email}`);
@@ -89,8 +103,8 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
-    console.error("[custom-signup] Error in Edge Function:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error("[custom-signup] Uncaught error in Edge Function:", error);
+    return new Response(JSON.stringify({ error: error.message || 'An unexpected server error occurred.' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
