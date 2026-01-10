@@ -55,6 +55,7 @@ export const ChatSidebar = ({
   };
 
   const handleNewConversationCreated = (conversationId: string) => {
+    setIsNewChatDialogOpen(false); // Close dialog after creation
     onSelectConversation(conversationId);
   };
 
@@ -97,6 +98,15 @@ export const ChatSidebar = ({
             const displayName = getConversationDisplayName(conversation);
             const displayAvatar = getConversationDisplayAvatar(conversation);
 
+            const latestMessageSender = conversation.conversation_participants.find(
+              (p) => p.user_id === conversation.latest_message_sender_id
+            )?.profiles;
+
+            const latestMessagePrefix =
+              conversation.latest_message_sender_id && conversation.latest_message_sender_id !== currentUser.id
+                ? `${latestMessageSender?.first_name || 'Someone'}: `
+                : '';
+
             return (
               <div
                 key={conversation.id}
@@ -115,7 +125,7 @@ export const ChatSidebar = ({
                 <div className="ml-3 flex-1">
                   <p className="font-medium">{displayName}</p>
                   <p className="text-sm text-muted-foreground truncate">
-                    {conversation.latest_message_content || "No messages yet"}
+                    {latestMessagePrefix}{conversation.latest_message_content || "No messages yet"}
                   </p>
                 </div>
                 <p className="text-xs text-muted-foreground">
