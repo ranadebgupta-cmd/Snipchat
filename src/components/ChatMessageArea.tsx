@@ -1,22 +1,28 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send } from "lucide-react";
+import { Send, CheckCheck } from "lucide-react"; // Import CheckCheck icon for seen status
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { showError } from "@/utils/toast";
 import { SupabaseConversation } from "./ChatApp";
-import { Spinner } from "./Spinner"; // Import the Spinner component
+import { Spinner } from "./Spinner";
 
 interface Profile {
   id: string;
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
+}
+
+interface MessageReceipt {
+  message_id: string;
+  user_id: string;
+  seen_at: string;
 }
 
 interface SupabaseMessage {
@@ -26,6 +32,7 @@ interface SupabaseMessage {
   content: string;
   created_at: string;
   profiles: Profile; // Joined profile data
+  message_receipts?: MessageReceipt[]; // Optional: receipts for this message
 }
 
 interface ChatMessageAreaProps {
@@ -45,42 +52,80 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  useEffect(() => {
-    const fetchMessages = async () => {
-      setIsLoadingMessages(true);
-      const { data, error } = await supabase
-        .from('messages')
-        .select(
-          `
+  const markMessagesAsSeen = useCallback(async (messageIds: string[]) => {
+    if (!currentUser || messageIds.length === 0) return;
+
+    const receiptsToInsert = messageIds.map(messageId => ({
+      message_id: messageId,
+      user_id: currentUser.id,
+    }));
+
+    const { error } = await supabase
+      .from('message_receipts')
+      .insert(receiptsToInsert)
+      .select(); // Select to get the inserted data, useful for debugging
+
+    if (error && error.code !== '23505') { // 23505 is unique_violation, which means receipt already exists
+      console.error("[ChatMessageArea] Error marking messages as seen:", error);
+    }
+  }, [currentUser]);
+
+  const fetchMessages = useCallback(async () => {
+    if (!currentUser) return;
+
+    setIsLoadingMessages(true);
+    const { data, error } = await supabase
+      .from('messages')
+      .select(
+        `
+        id,
+        conversation_id,
+        sender_id,
+        content,
+        created_at,
+        profiles (
           id,
-          conversation_id,
-          sender_id,
-          content,
-          created_at,
-          profiles (
-            id,
-            first_name,
-            last_name,
-            avatar_url
-          )
-          `
+          first_name,
+          last_name,
+          avatar_url
+        ),
+        message_receipts (
+          message_id,
+          user_id,
+          seen_at
         )
-        .eq('conversation_id', conversation.id)
-        .order('created_at', { ascending: true });
+        `
+      )
+      .eq('conversation_id', conversation.id)
+      .order('created_at', { ascending: true });
 
-      if (error) {
-        console.error("Error fetching messages:", error);
-        showError("Failed to load messages.");
-        setMessages([]);
-      } else {
-        setMessages(data as SupabaseMessage[]);
+    if (error) {
+      console.error("Error fetching messages:", error);
+      showError("Failed to load messages.");
+      setMessages([]);
+    } else {
+      const fetchedMessages = data as SupabaseMessage[];
+      setMessages(fetchedMessages);
+
+      // Identify messages sent by others that the current user hasn't seen yet
+      const unseenMessageIds = fetchedMessages
+        .filter(msg => msg.sender_id !== currentUser.id && !msg.message_receipts?.some(r => r.user_id === currentUser.id))
+        .map(msg => msg.id);
+
+      if (unseenMessageIds.length > 0) {
+        await markMessagesAsSeen(unseenMessageIds);
+        // Re-fetch messages to show updated seen status for the current user
+        // This might cause a slight flicker, but ensures data consistency.
+        // For a more optimized approach, we could update state directly.
+        fetchMessages();
       }
-      setIsLoadingMessages(false);
-    };
+    }
+    setIsLoadingMessages(false);
+  }, [conversation.id, currentUser, markMessagesAsSeen]);
 
+  useEffect(() => {
     fetchMessages();
 
-    // Setup real-time listener for new messages in this conversation
     const channel = supabase
       .channel(`public:messages:conversation_id=eq.${conversation.id}`)
       .on(
@@ -88,8 +133,15 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversation.id}` },
         (payload) => {
           console.log('[ChatMessageArea] New message received!', payload);
-          // Re-fetch messages or directly add the new message if payload contains full data
-          fetchMessages(); // Simple re-fetch for now
+          fetchMessages();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'message_receipts', filter: `message_id=in.(${messages.map(m => m.id).join(',')})` },
+        (payload) => {
+          console.log('[ChatMessageArea] New message receipt received!', payload);
+          fetchMessages(); // Re-fetch to update seen status
         }
       )
       .subscribe();
@@ -97,7 +149,7 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [conversation.id]);
+  }, [conversation.id, fetchMessages, messages]); // Added messages to dependency array to update filter for receipts
 
   useEffect(() => {
     scrollToBottom();
@@ -107,7 +159,7 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
     if (!messageInput.trim()) return;
 
     setIsSendingMessage(true);
-    await onSendMessage(messageInput); // This calls the parent's onSendMessage which inserts into DB
+    await onSendMessage(messageInput);
     setMessageInput("");
     setIsSendingMessage(false);
   };
@@ -129,6 +181,16 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
   const displayName = conversation.name || `${getOtherParticipantProfile()?.first_name || ''} ${getOtherParticipantProfile()?.last_name || ''}`.trim() || "Unknown Chat";
   const displayAvatar = conversation.name ? "https://api.dicebear.com/7.x/lorelei/svg?seed=GroupChat" : getOtherParticipantProfile()?.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${getOtherParticipantProfile()?.first_name || 'User'}`;
 
+  const isMessageSeenByAllOthers = (message: SupabaseMessage) => {
+    if (message.sender_id !== currentUser.id || !message.message_receipts) return false;
+
+    const otherParticipants = conversation.conversation_participants.filter(p => p.user_id !== currentUser.id);
+    if (otherParticipants.length === 0) return false; // No other participants to see it
+
+    return otherParticipants.every(otherP =>
+      message.message_receipts?.some(receipt => receipt.user_id === otherP.user_id)
+    );
+  };
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -151,6 +213,7 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
               const senderProfile = message.profiles || getParticipantProfile(message.sender_id);
               const senderName = senderProfile?.first_name || "Unknown";
               const senderAvatar = senderProfile?.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${senderName}`;
+              const seenByAll = isMessageSeenByAllOthers(message);
 
               return (
                 <div
@@ -178,9 +241,14 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
                       } shadow-md`}
                     >
                       <p className="text-sm">{message.content}</p>
-                      <span className="text-xs opacity-75 mt-1 block text-right">
-                        {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
+                      <div className="flex items-center justify-end text-xs opacity-75 mt-1">
+                        <span>
+                          {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        {message.sender_id === currentUser.id && seenByAll && (
+                          <CheckCheck className="h-3 w-3 ml-1 text-primary-foreground" />
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
