@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,7 @@ import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { SupabaseConversation } from "./ChatApp"; // Import the shared type
+import { NewConversationDialog } from "./NewConversationDialog"; // Import the new dialog
 
 interface ChatSidebarProps {
   conversations: SupabaseConversation[];
@@ -22,6 +23,7 @@ export const ChatSidebar = ({
   onSelectConversation,
   currentUser,
 }: ChatSidebarProps) => {
+  const [isNewChatDialogOpen, setIsNewChatDialogOpen] = useState(false);
 
   const getConversationDisplayName = (conversation: SupabaseConversation) => {
     if (conversation.name) {
@@ -48,18 +50,22 @@ export const ChatSidebar = ({
     return otherParticipant?.profiles?.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${otherParticipant?.profiles?.first_name || 'User'}`;
   };
 
+  const handleNewConversationCreated = (conversationId: string) => {
+    onSelectConversation(conversationId); // Automatically select the new conversation
+  };
+
   return (
     <div className="h-full flex flex-col">
       <div className="p-4 border-b border-border flex justify-between items-center">
         <h2 className="text-xl font-semibold">Chats</h2>
-        <Button variant="ghost" size="icon" onClick={() => console.log("Start new chat")}>
+        <Button variant="ghost" size="icon" onClick={() => setIsNewChatDialogOpen(true)}>
           <Plus className="h-5 w-5" />
           <span className="sr-only">Start new chat</span>
         </Button>
       </div>
       <ScrollArea className="flex-1">
         {conversations.length === 0 ? (
-          <div className="p-4 text-muted-foreground text-center">No conversations yet.</div>
+          <div className="p-4 text-muted-foreground text-center">No conversations yet. Click '+' to start one.</div>
         ) : (
           conversations.map((conversation) => {
             const latestMessage = conversation.messages[0];
@@ -93,6 +99,11 @@ export const ChatSidebar = ({
           })
         )}
       </ScrollArea>
+      <NewConversationDialog
+        isOpen={isNewChatDialogOpen}
+        onClose={() => setIsNewChatDialogOpen(false)}
+        onConversationCreated={handleNewConversationCreated}
+      />
     </div>
   );
 };

@@ -1,0 +1,222 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Checkbox } from "@/components/ui/checkbox";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/integrations/supabase/auth";
+import { showError, showSuccess } from "@/utils/toast";
+import { User } from "@supabase/supabase-js";
+
+interface Profile {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
+}
+
+interface NewConversationDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConversationCreated: (conversationId: string) => void;
+}
+
+export const NewConversationDialog = ({
+  isOpen,
+  onClose,
+  onConversationCreated,
+}: NewConversationDialogProps) => {
+  const { user: currentUser } = useAuth();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<Profile[]>([]);
+  const [selectedParticipants, setSelectedParticipants] = useState<Profile[]>([]);
+  const [isCreating, setIsCreating] = useState(false);
+
+  useEffect(() => {
+    const searchUsers = async () => {
+      if (!searchTerm.trim()) {
+        setSearchResults([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, first_name, last_name, avatar_url")
+        .ilike("first_name", `%${searchTerm}%`) // Search by first name
+        .neq("id", currentUser?.id); // Exclude current user
+
+      if (error) {
+        console.error("Error searching users:", error);
+        showError("Failed to search users.");
+        setSearchResults([]);
+      } else {
+        setSearchResults(data || []);
+      }
+    };
+
+    const handler = setTimeout(() => {
+      searchUsers();
+    }, 300); // Debounce search
+
+    return () => clearTimeout(handler);
+  }, [searchTerm, currentUser]);
+
+  const handleSelectParticipant = (profile: Profile, checked: boolean) => {
+    if (checked) {
+      setSelectedParticipants((prev) => [...prev, profile]);
+    } else {
+      setSelectedParticipants((prev) => prev.filter((p) => p.id !== profile.id));
+    }
+  };
+
+  const handleCreateConversation = async () => {
+    if (!currentUser || selectedParticipants.length === 0) {
+      showError("Please select at least one participant.");
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      // 1. Create the conversation
+      const { data: conversationData, error: conversationError } = await supabase
+        .from("conversations")
+        .insert({}) // No name for 1-on-1 chats, can add later for groups
+        .select("id")
+        .single();
+
+      if (conversationError || !conversationData) {
+        throw new Error(conversationError?.message || "Failed to create conversation.");
+      }
+
+      const conversationId = conversationData.id;
+
+      // 2. Add current user as participant
+      const participantsToInsert = [{ conversation_id: conversationId, user_id: currentUser.id }];
+
+      // 3. Add selected participants
+      selectedParticipants.forEach((p) => {
+        participantsToInsert.push({ conversation_id: conversationId, user_id: p.id });
+      });
+
+      const { error: participantsError } = await supabase
+        .from("conversation_participants")
+        .insert(participantsToInsert);
+
+      if (participantsError) {
+        throw new Error(participantsError?.message || "Failed to add participants.");
+      }
+
+      showSuccess("Conversation created successfully!");
+      onConversationCreated(conversationId);
+      handleClose();
+    } catch (error: any) {
+      console.error("Error creating conversation:", error);
+      showError(error.message || "An unexpected error occurred.");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleClose = () => {
+    setSearchTerm("");
+    setSearchResults([]);
+    setSelectedParticipants([]);
+    onClose();
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Start New Chat</DialogTitle>
+          <DialogDescription>
+            Search for users and select them to start a new conversation.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <Input
+            placeholder="Search users by first name..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <ScrollArea className="h-[200px] w-full rounded-md border">
+            {searchResults.length === 0 && searchTerm.trim() ? (
+              <p className="p-4 text-center text-muted-foreground">No users found.</p>
+            ) : (
+              searchResults.map((profile) => (
+                <div
+                  key={profile.id}
+                  className="flex items-center p-3 hover:bg-accent cursor-pointer"
+                  onClick={() =>
+                    handleSelectParticipant(
+                      profile,
+                      !selectedParticipants.some((p) => p.id === profile.id)
+                    )
+                  }
+                >
+                  <Checkbox
+                    checked={selectedParticipants.some((p) => p.id === profile.id)}
+                    onCheckedChange={(checked) =>
+                      handleSelectParticipant(profile, checked as boolean)
+                    }
+                    className="mr-3"
+                  />
+                  <Avatar className="h-8 w-8 mr-3">
+                    <AvatarImage
+                      src={profile.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${profile.first_name || 'User'}`}
+                      alt={`${profile.first_name} ${profile.last_name}`}
+                    />
+                    <AvatarFallback>{profile.first_name?.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <p className="font-medium">
+                    {`${profile.first_name || ""} ${profile.last_name || ""}`.trim()}
+                  </p>
+                </div>
+              ))
+            )}
+          </ScrollArea>
+          {selectedParticipants.length > 0 && (
+            <div className="mt-2">
+              <p className="text-sm font-medium mb-2">Selected:</p>
+              <div className="flex flex-wrap gap-2">
+                {selectedParticipants.map((p) => (
+                  <Badge key={p.id} variant="secondary" className="flex items-center">
+                    {`${p.first_name || ""} ${p.last_name || ""}`.trim()}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-4 w-4 ml-1"
+                      onClick={() => handleSelectParticipant(p, false)}
+                    >
+                      <X className="h-3 w-3" />
+                      <span className="sr-only">Remove</span>
+                    </Button>
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={handleClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleCreateConversation} disabled={selectedParticipants.length === 0 || isCreating}>
+            {isCreating ? "Creating..." : "Create Chat"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
