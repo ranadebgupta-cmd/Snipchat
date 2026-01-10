@@ -17,15 +17,7 @@ interface Profile {
   avatar_url: string | null;
 }
 
-interface SupabaseMessage {
-  id: string;
-  conversation_id: string;
-  sender_id: string;
-  content: string;
-  created_at: string;
-  profiles: Profile; // Joined profile data
-}
-
+// Updated interface to use the new view structure
 export interface SupabaseConversation {
   id: string;
   name: string | null;
@@ -34,7 +26,9 @@ export interface SupabaseConversation {
     user_id: string;
     profiles: Profile; // Joined profile data for participants
   }[];
-  messages: SupabaseMessage[]; // Latest message for display in sidebar
+  latest_message_content: string | null;
+  latest_message_sender_id: string | null;
+  latest_message_created_at: string | null;
 }
 
 export const ChatApp = () => {
@@ -68,19 +62,12 @@ export const ChatApp = () => {
                 last_name,
                 avatar_url
               )
-            ),
-            messages!inner(
-              id,
-              sender_id,
-              content,
-              created_at,
-              profiles (
-                id,
-                first_name,
-                last_name,
-                avatar_url
-              )
             )
+          ),
+          conversation_with_last_message (
+            content,
+            sender_id,
+            message_created_at
           )
           `
         )
@@ -95,6 +82,7 @@ export const ChatApp = () => {
         const processedConversations: SupabaseConversation[] = (data || [])
           .map((cp: any) => {
             const conv = cp.conversations;
+            const lastMessage = cp.conversation_with_last_message; // Data from the view
             if (!conv) return null;
 
             // Process conversation participants to ensure 'profiles' is a single object
@@ -103,29 +91,24 @@ export const ChatApp = () => {
               profiles: Array.isArray(participant.profiles) ? participant.profiles[0] : participant.profiles,
             }));
 
-            // Sort messages by created_at descending and take the first one (latest)
-            const latestMessage = conv.messages && conv.messages.length > 0
-              ? conv.messages.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
-              : null;
-            
-            const processedLatestMessage = latestMessage ? {
-              id: latestMessage.id,
-              conversation_id: latestMessage.conversation_id,
-              sender_id: latestMessage.sender_id,
-              content: latestMessage.content,
-              created_at: latestMessage.created_at,
-              profiles: Array.isArray(latestMessage.profiles) ? latestMessage.profiles[0] : latestMessage.profiles,
-            } : null;
-
             return {
               id: conv.id,
               name: conv.name,
               created_at: conv.created_at,
               conversation_participants: processedParticipants,
-              messages: processedLatestMessage ? [processedLatestMessage] : [], // Store only the latest message for sidebar display
+              latest_message_content: lastMessage?.content || null,
+              latest_message_sender_id: lastMessage?.sender_id || null,
+              latest_message_created_at: lastMessage?.message_created_at || null,
             };
           })
           .filter(Boolean) as SupabaseConversation[]; // Cast after filtering nulls
+
+        // Sort conversations by the latest message's created_at for display
+        processedConversations.sort((a, b) => {
+          const dateA = a.latest_message_created_at ? new Date(a.latest_message_created_at).getTime() : 0;
+          const dateB = b.latest_message_created_at ? new Date(b.latest_message_created_at).getTime() : 0;
+          return dateB - dateA; // Descending order
+        });
 
         setConversations(processedConversations);
         if (processedConversations.length > 0 && !selectedConversationId) {

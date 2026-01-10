@@ -94,7 +94,6 @@ export const ChatSidebar = ({
           <div className="p-4 text-muted-foreground text-center">No conversations yet. Click '+' to start one.</div>
         ) : (
           conversations.map((conversation) => {
-            const latestMessage = conversation.messages[0];
             const displayName = getConversationDisplayName(conversation);
             const displayAvatar = getConversationDisplayAvatar(conversation);
 
@@ -116,11 +115,11 @@ export const ChatSidebar = ({
                 <div className="ml-3 flex-1">
                   <p className="font-medium">{displayName}</p>
                   <p className="text-sm text-muted-foreground truncate">
-                    {latestMessage?.content || "No messages yet"}
+                    {conversation.latest_message_content || "No messages yet"}
                   </p>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {latestMessage?.created_at ? new Date(latestMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                  {conversation.latest_message_created_at ? new Date(conversation.latest_message_created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                 </p>
               </div>
             );
