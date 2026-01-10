@@ -78,14 +78,16 @@ export const ChatApp = () => {
                 first_name,
                 last_name,
                 avatar_url
-              )
+              ),
+              order=created_at.desc,
+              limit=1
             )
           )
           `
         )
-        .eq('user_id', user.id)
-        .order('created_at', { foreignTable: 'conversations.messages', ascending: false })
-        .limit(1, { foreignTable: 'conversations.messages' }); // Get only the latest message for each conversation
+        .eq('user_id', user.id);
+        // Removed the .order() and .limit() calls that were outside the select string
+        // as they are now handled within the nested 'messages' select.
 
       if (error) {
         console.error("Error fetching conversations:", error);
