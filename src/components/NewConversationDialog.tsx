@@ -126,24 +126,27 @@ export const NewConversationDialog = ({
       }
 
       const conversationId = conversationData.id;
+      console.log("Successfully created conversation with ID:", conversationId); // Add logging
 
-      // 2. Add current user as participant
-      const participantsToInsert = [{ conversation_id: conversationId, user_id: currentUser.id }];
+      // --- TEMPORARILY COMMENTING OUT PARTICIPANTS INSERT FOR DEBUGGING ---
+      // // 2. Add current user as participant
+      // const participantsToInsert = [{ conversation_id: conversationId, user_id: currentUser.id }];
 
-      // 3. Add selected participants
-      selectedParticipants.forEach((p) => {
-        participantsToInsert.push({ conversation_id: conversationId, user_id: p.id });
-      });
+      // // 3. Add selected participants
+      // selectedParticipants.forEach((p) => {
+      //   participantsToInsert.push({ conversation_id: conversationId, user_id: p.id });
+      // });
 
-      const { error: participantsError } = await supabase
-        .from("conversation_participants")
-        .insert(participantsToInsert);
+      // const { error: participantsError } = await supabase
+      //   .from("conversation_participants")
+      //   .insert(participantsToInsert);
 
-      if (participantsError) {
-        throw new Error(participantsError?.message || "Failed to add participants.");
-      }
+      // if (participantsError) {
+      //   throw new Error(participantsError?.message || "Failed to add participants.");
+      // }
+      // --- END TEMPORARY COMMENT OUT ---
 
-      showSuccess("Conversation created successfully!");
+      showSuccess("Conversation created successfully (participants not added yet for debugging)!");
       onConversationCreated(conversationId);
       handleClose();
     } catch (error: any) {
