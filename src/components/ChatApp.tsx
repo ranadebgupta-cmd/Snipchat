@@ -69,7 +69,7 @@ export const ChatApp = () => {
                 avatar_url
               )
             ),
-            messages (
+            messages!latest_message (
               id,
               sender_id,
               content,
@@ -85,8 +85,6 @@ export const ChatApp = () => {
           `
         )
         .eq('user_id', user.id);
-        // Removed the .order() and .limit() calls that were outside the select string
-        // as they are now handled within the nested 'messages' select.
 
       if (error) {
         console.error("[ChatApp] Error fetching conversations:", error);
@@ -106,7 +104,8 @@ export const ChatApp = () => {
             }));
 
             // Ensure messages is an array and get the latest one, processing its profile
-            const latestMessage = conv.messages && conv.messages.length > 0 ? conv.messages[0] : null;
+            // Note: The 'messages' property will now be 'latest_message' due to the alias
+            const latestMessage = conv.latest_message && conv.latest_message.length > 0 ? conv.latest_message[0] : null;
             const processedLatestMessage = latestMessage ? {
               id: latestMessage.id,
               conversation_id: latestMessage.conversation_id,
