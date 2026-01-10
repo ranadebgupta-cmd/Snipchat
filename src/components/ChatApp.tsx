@@ -7,7 +7,7 @@ import { useAuth } from "@/integrations/supabase/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { showError } from "@/utils/toast";
 import { User } from "@supabase/supabase-js";
-import { Spinner } from "./Spinner"; // Import the Spinner component
+import { Spinner } from "./Spinner";
 
 // Define types for Supabase data
 interface Profile {
@@ -130,6 +130,8 @@ export const ChatApp = () => {
         setConversations(processedConversations);
         if (processedConversations.length > 0 && !selectedConversationId) {
           setSelectedConversationId(processedConversations[0].id);
+        } else if (processedConversations.length === 0) {
+          setSelectedConversationId(null); // No conversations left
         }
         console.log("[ChatApp] Processed conversations:", processedConversations);
       setIsLoadingConversations(false);
@@ -183,6 +185,19 @@ export const ChatApp = () => {
     // The real-time listener in ChatMessageArea will handle updating the UI
   };
 
+  const handleConversationDeleted = (deletedConversationId: string) => {
+    setConversations(prevConversations => {
+      const updatedConversations = prevConversations.filter(
+        (conv) => conv.id !== deletedConversationId
+      );
+      // If the deleted conversation was selected, select the first available one or none
+      if (selectedConversationId === deletedConversationId) {
+        setSelectedConversationId(updatedConversations.length > 0 ? updatedConversations[0].id : null);
+      }
+      return updatedConversations;
+    });
+  };
+
   if (isAuthLoading || isLoadingConversations) {
     return (
       <div className="flex items-center justify-center h-screen w-screen bg-background">
@@ -213,6 +228,7 @@ export const ChatApp = () => {
             conversation={selectedConversation}
             onSendMessage={handleSendMessage}
             currentUser={user}
+            onConversationDeleted={handleConversationDeleted} // Pass the new callback
           />
         ) : (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">

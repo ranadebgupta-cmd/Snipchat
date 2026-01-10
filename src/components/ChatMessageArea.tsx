@@ -55,15 +55,17 @@ interface ChatMessageAreaProps {
   conversation: SupabaseConversation;
   onSendMessage: (text: string) => void;
   currentUser: User;
+  onConversationDeleted: (conversationId: string) => void; // New prop for deletion callback
 }
 
-export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: ChatMessageAreaProps) => {
+export const ChatMessageArea = ({ conversation, onSendMessage, currentUser, onConversationDeleted }: ChatMessageAreaProps) => {
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState<SupabaseMessage[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [typingUsers, setTypingUsers] = useState<TypingStatus[]>([]);
   const [messageToDeleteId, setMessageToDeleteId] = useState<string | null>(null);
+  const [showDeleteConversationDialog, setShowDeleteConversationDialog] = useState(false); // New state for conversation deletion dialog
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -325,6 +327,28 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
     setMessageToDeleteId(null); // Close the dialog
   };
 
+  const handleDeleteConversation = () => {
+    setShowDeleteConversationDialog(true);
+  };
+
+  const confirmDeleteConversation = async () => {
+    if (!conversation.id) return;
+
+    const { error } = await supabase
+      .from('conversations')
+      .delete()
+      .eq('id', conversation.id);
+
+    if (error) {
+      console.error("[ChatMessageArea] Error deleting conversation:", error);
+      showError("Failed to delete conversation.");
+    } else {
+      showSuccess("Conversation deleted successfully!");
+      onConversationDeleted(conversation.id); // Notify parent component
+    }
+    setShowDeleteConversationDialog(false);
+  };
+
   const getParticipantProfile = (userId: string) => {
     return conversation.conversation_participants.find(p => p.user_id === userId)?.profiles;
   };
@@ -351,6 +375,9 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
     ? `${typingUsers.map(u => u.profiles?.first_name || 'Someone').join(', ')} is typing...`
     : '';
 
+  // Determine if the conversation is 'blank' for deletion purposes
+  const isBlankConversation = !conversation.name && messages.length === 0;
+
   console.log("[ChatMessageArea] Current typingUsers state:", typingUsers);
   console.log("[ChatMessageArea] typingIndicatorText:", typingIndicatorText);
 
@@ -362,6 +389,18 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
           <AvatarFallback>{displayName.charAt(0)}</AvatarFallback>
         </Avatar>
         <h3 className="ml-3 text-lg font-semibold">{displayName}</h3>
+        {isBlankConversation && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleDeleteConversation}
+            className="ml-auto text-destructive hover:bg-destructive/10"
+            title="Delete empty conversation"
+          >
+            <Trash2 className="h-5 w-5" />
+            <span className="sr-only">Delete conversation</span>
+          </Button>
+        )}
       </div>
       <ScrollArea className="flex-1 p-4 bg-muted/20">
         {isLoadingMessages ? (
@@ -462,6 +501,21 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteMessage}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteConversationDialog} onOpenChange={setShowDeleteConversationDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this conversation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete this empty conversation for all participants.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteConversation} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete Conversation</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
