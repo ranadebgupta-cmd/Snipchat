@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { showError, showSuccess } from '@/utils/toast';
+import { Spinner } from './Spinner'; // Import the Spinner component
 
 export const CustomAuthForm = () => {
   const [email, setEmail] = useState('');
@@ -65,18 +66,18 @@ export const CustomAuthForm = () => {
   };
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md shadow-lg">
       <CardHeader>
-        <CardTitle className="text-2xl text-center">Welcome to SnipChat!</CardTitle>
-        <CardDescription className="text-center">
+        <CardTitle className="text-3xl font-bold text-center text-primary">Welcome to SnipChat!</CardTitle>
+        <CardDescription className="text-center text-muted-foreground">
           {activeTab === 'login' ? 'Log in to your account' : 'Create a new account'}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="login">Login</TabsTrigger>
-            <TabsTrigger value="signup">Sign Up</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 bg-secondary/50">
+            <TabsTrigger value="login" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Login</TabsTrigger>
+            <TabsTrigger value="signup" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Sign Up</TabsTrigger>
           </TabsList>
           <TabsContent value="login">
             <form onSubmit={handleLogin} className="space-y-4 mt-4">
@@ -89,6 +90,7 @@ export const CustomAuthForm = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  className="focus-visible:ring-primary"
                 />
               </div>
               <div>
@@ -100,10 +102,11 @@ export const CustomAuthForm = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  className="focus-visible:ring-primary"
                 />
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Logging In...' : 'Login'}
+                {isLoading ? <Spinner size="sm" className="text-primary-foreground" /> : 'Login'}
               </Button>
             </form>
           </TabsContent>
@@ -118,6 +121,7 @@ export const CustomAuthForm = () => {
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   required
+                  className="focus-visible:ring-primary"
                 />
               </div>
               <div>
@@ -129,6 +133,7 @@ export const CustomAuthForm = () => {
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   required
+                  className="focus-visible:ring-primary"
                 />
               </div>
               <div>
@@ -140,6 +145,7 @@ export const CustomAuthForm = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  className="focus-visible:ring-primary"
                 />
               </div>
               <div>
@@ -151,10 +157,11 @@ export const CustomAuthForm = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  className="focus-visible:ring-primary"
                 />
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Signing Up...' : 'Sign Up'}
+                {isLoading ? <Spinner size="sm" className="text-primary-foreground" /> : 'Sign Up'}
               </Button>
             </form>
           </TabsContent>
