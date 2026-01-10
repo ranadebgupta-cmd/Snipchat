@@ -5,12 +5,22 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, CheckCheck } from "lucide-react"; // Import CheckCheck icon for seen status
+import { Send, CheckCheck, Trash2 } from "lucide-react"; // Import CheckCheck and Trash2 icons
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { showError } from "@/utils/toast";
+import { showError, showSuccess } from "@/utils/toast";
 import { SupabaseConversation } from "./ChatApp";
 import { Spinner } from "./Spinner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Profile {
   id: string;
@@ -53,6 +63,7 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [typingUsers, setTypingUsers] = useState<TypingStatus[]>([]);
+  const [messageToDeleteId, setMessageToDeleteId] = useState<string | null>(null); // State for message to delete
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -149,9 +160,9 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
       .channel(`public:messages:conversation_id=eq.${conversation.id}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversation.id}` },
+        { event: '*', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversation.id}` },
         (payload) => {
-          console.log('[ChatMessageArea] New message received!', payload);
+          console.log('[ChatMessageArea] Message change received!', payload);
           fetchMessages();
         }
       )
@@ -297,6 +308,28 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
     }
   };
 
+  const handleDeleteClick = (messageId: string) => {
+    setMessageToDeleteId(messageId);
+  };
+
+  const confirmDeleteMessage = async () => {
+    if (!messageToDeleteId) return;
+
+    const { error } = await supabase
+      .from('messages')
+      .delete()
+      .eq('id', messageToDeleteId);
+
+    if (error) {
+      console.error("[ChatMessageArea] Error deleting message:", error);
+      showError("Failed to delete message.");
+    } else {
+      showSuccess("Message deleted successfully!");
+      fetchMessages(); // Re-fetch messages to update the UI
+    }
+    setMessageToDeleteId(null); // Close the dialog
+  };
+
   const getParticipantProfile = (userId: string) => {
     return conversation.conversation_participants.find(p => p.user_id === userId)?.profiles;
   };
@@ -357,7 +390,7 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
                   }`}
                 >
                   <div
-                    className={`flex items-end max-w-[70%] ${
+                    className={`flex items-end max-w-[70%] group ${
                       message.sender_id === currentUser.id ? "flex-row-reverse" : "flex-row"
                     }`}
                   >
@@ -368,7 +401,7 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
                       </Avatar>
                     )}
                     <div
-                      className={`p-3 rounded-xl ${
+                      className={`p-3 rounded-xl relative ${
                         message.sender_id === currentUser.id
                           ? "bg-primary text-primary-foreground rounded-br-none"
                           : "bg-secondary text-secondary-foreground rounded-bl-none"
@@ -383,6 +416,17 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
                           <CheckCheck className="h-3 w-3 ml-1 text-primary-foreground" />
                         )}
                       </div>
+                      {message.sender_id === currentUser.id && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute -top-2 -right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-primary-foreground bg-primary/80 hover:bg-primary"
+                          onClick={() => handleDeleteClick(message.id)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          <span className="sr-only">Delete message</span>
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -411,6 +455,21 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
           <span className="sr-only">Send message</span>
         </Button>
       </div>
+
+      <AlertDialog open={!!messageToDeleteId} onOpenChange={(open) => !open && setMessageToDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete your message.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteMessage}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
