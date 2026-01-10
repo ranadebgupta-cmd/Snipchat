@@ -33,34 +33,18 @@ export const CustomAuthForm = () => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          first_name: firstName,
-          last_name: lastName,
-        },
-      },
+
+    // Call the custom-signup Edge Function instead of supabase.auth.signUp
+    const { data, error: edgeFunctionError } = await supabase.functions.invoke('custom-signup', {
+      body: { email, password, firstName, lastName },
     });
 
-    if (error) {
-      showError(error.message);
-    } else if (data.user && !data.user.email_confirmed_at) {
-      // User created, but email not confirmed. Now trigger custom email.
-      const { error: edgeFunctionError } = await supabase.functions.invoke('send-confirmation-email', {
-        body: { email: data.user.email },
-      });
-
-      if (edgeFunctionError) {
-        console.error("Error invoking send-confirmation-email Edge Function:", edgeFunctionError);
-        showError("Failed to send confirmation email. Please try again.");
-      } else {
-        showSuccess("Please check your email to confirm your account.");
-        setActiveTab('login'); // Suggest user to log in after confirming email
-      }
+    if (edgeFunctionError) {
+      console.error("Error invoking custom-signup Edge Function:", edgeFunctionError);
+      showError(edgeFunctionError.message || "Failed to sign up. Please try again.");
     } else {
-      showSuccess('Signed up and logged in successfully!');
+      showSuccess("Account created! Please check your email to confirm your account.");
+      setActiveTab('login'); // Suggest user to log in after confirming email
     }
     setIsLoading(false);
   };
