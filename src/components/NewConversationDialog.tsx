@@ -124,6 +124,8 @@ export const NewConversationDialog = ({
 
       if (conversationError || !conversationData) {
         console.error("[NewConversationDialog] Error creating conversation:", conversationError);
+        // Log the full error object for detailed debugging
+        console.error("[NewConversationDialog] Supabase error details:", JSON.stringify(conversationError, null, 2));
         throw new Error(conversationError?.message || "Failed to create conversation.");
       }
 
