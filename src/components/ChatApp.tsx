@@ -32,7 +32,7 @@ export interface SupabaseConversation {
   created_at: string;
   conversation_participants: {
     user_id: string;
-    profiles: Profile | null; // Joined profile data for participants, can be null
+    profiles: Profile; // Joined profile data for participants
   }[];
   messages: SupabaseMessage[]; // Latest message for display in sidebar
 }
@@ -85,22 +85,27 @@ export const ChatApp = () => {
           `
         )
         .eq('user_id', user.id);
+        // Removed the .order() and .limit() calls that were outside the select string
+        // as they are now handled within the nested 'messages' select.
 
       if (error) {
         console.error("[ChatApp] Error fetching conversations:", error);
-        showError(`Failed to load conversations: ${error.message}`);
+        showError(`Failed to load conversations: ${error.message}`); // More detailed error
       } else {
         console.log("[ChatApp] Successfully fetched raw conversations data:", data);
+        // Flatten the data structure and process it
         const processedConversations: SupabaseConversation[] = (data || [])
           .map((cp: any) => {
             const conv = cp.conversations;
             if (!conv) return null;
 
+            // Process conversation participants to ensure 'profiles' is a single object
             const processedParticipants = (conv.conversation_participants || []).map((participant: any) => ({
               user_id: participant.user_id,
-              profiles: participant.profiles || null, // Directly assign or null
+              profiles: Array.isArray(participant.profiles) ? participant.profiles[0] : participant.profiles,
             }));
 
+            // Ensure messages is an array and get the latest one, processing its profile
             const latestMessage = conv.messages && conv.messages.length > 0 ? conv.messages[0] : null;
             const processedLatestMessage = latestMessage ? {
               id: latestMessage.id,
@@ -108,7 +113,7 @@ export const ChatApp = () => {
               sender_id: latestMessage.sender_id,
               content: latestMessage.content,
               created_at: latestMessage.created_at,
-              profiles: latestMessage.profiles || null, // Directly assign or null
+              profiles: Array.isArray(latestMessage.profiles) ? latestMessage.profiles[0] : latestMessage.profiles,
             } : null;
 
             return {
@@ -116,10 +121,10 @@ export const ChatApp = () => {
               name: conv.name,
               created_at: conv.created_at,
               conversation_participants: processedParticipants,
-              messages: processedLatestMessage ? [processedLatestMessage] : [],
+              messages: processedLatestMessage ? [processedLatestMessage] : [], // Store only the latest message for sidebar display
             };
           })
-          .filter(Boolean) as SupabaseConversation[];
+          .filter(Boolean) as SupabaseConversation[]; // Cast after filtering nulls
 
         setConversations(processedConversations);
         if (processedConversations.length > 0 && !selectedConversationId) {
@@ -132,6 +137,7 @@ export const ChatApp = () => {
 
     fetchConversations();
 
+    // Setup real-time listener for new messages or conversation updates
     const channel = supabase
       .channel('public:conversations')
       .on(
@@ -139,7 +145,7 @@ export const ChatApp = () => {
         { event: '*', schema: 'public', table: 'conversations' },
         (payload) => {
           console.log('[ChatApp] Conversation change received!', payload);
-          fetchConversations();
+          fetchConversations(); // Re-fetch conversations for simplicity
         }
       )
       .on(
@@ -147,7 +153,7 @@ export const ChatApp = () => {
         { event: '*', schema: 'public', table: 'messages' },
         (payload) => {
           console.log('[ChatApp] Message change received!', payload);
-          fetchConversations();
+          fetchConversations(); // Re-fetch conversations for simplicity
         }
       )
       .subscribe();
@@ -174,6 +180,7 @@ export const ChatApp = () => {
       console.error("Error sending message:", error);
       showError("Failed to send message.");
     }
+    // The real-time listener in ChatMessageArea will handle updating the UI
   };
 
   if (isAuthLoading || isLoadingConversations) {
@@ -186,6 +193,7 @@ export const ChatApp = () => {
   }
 
   if (!user) {
+    // Should be redirected by SessionContextProvider, but as a fallback
     return null;
   }
 

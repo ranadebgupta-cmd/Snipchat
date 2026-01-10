@@ -31,14 +31,14 @@ interface SupabaseMessage {
   sender_id: string;
   content: string;
   created_at: string;
-  profiles: Profile | null; // Joined profile data, can be null
+  profiles: Profile; // Joined profile data
   message_receipts?: MessageReceipt[]; // Optional: receipts for this message
 }
 
 interface TypingStatus {
   user_id: string;
   last_typed_at: string;
-  profiles: Profile | null; // Joined profile data for the typing user, can be null
+  profiles: Profile; // Joined profile data for the typing user
 }
 
 interface ChatMessageAreaProps {
@@ -73,9 +73,9 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
     const { error } = await supabase
       .from('message_receipts')
       .insert(receiptsToInsert)
-      .select();
+      .select(); // Select to get the inserted data, useful for debugging
 
-    if (error && error.code !== '23505') {
+    if (error && error.code !== '23505') { // 23505 is unique_violation, which means receipt already exists
       console.error("[ChatMessageArea] Error marking messages as seen:", error);
     }
   }, [currentUser]);
@@ -114,29 +114,34 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
       showError("Failed to load messages.");
       setMessages([]);
     } else {
+      // Explicitly map the data to ensure 'profiles' is a single object
       const fetchedMessages: SupabaseMessage[] = (data || []).map((msg: any) => ({
         id: msg.id,
         conversation_id: msg.conversation_id,
         sender_id: msg.sender_id,
         content: msg.content,
         created_at: msg.created_at,
-        profiles: msg.profiles || null, // Directly assign or null
-        message_receipts: msg.message_receipts || [],
+        // Ensure profiles is a single object, assuming it's returned as an array of one or directly as an object
+        profiles: Array.isArray(msg.profiles) ? msg.profiles[0] : msg.profiles,
+        message_receipts: msg.message_receipts || [], // Ensure it's an array
       }));
       setMessages(fetchedMessages);
 
+      // Identify messages sent by others that the current user hasn't seen yet
       const unseenMessageIds = fetchedMessages
         .filter(msg => msg.sender_id !== currentUser.id && !msg.message_receipts?.some(r => r.user_id === currentUser.id))
         .map(msg => msg.id);
 
       if (unseenMessageIds.length > 0) {
         await markMessagesAsSeen(unseenMessageIds);
+        // Re-fetch messages to show updated seen status for the current user
         fetchMessages();
       }
     }
     setIsLoadingMessages(false);
   }, [conversation.id, currentUser, markMessagesAsSeen]);
 
+  // Effect for fetching messages and setting up real-time listeners
   useEffect(() => {
     fetchMessages();
 
@@ -155,7 +160,7 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
         { event: 'INSERT', schema: 'public', table: 'message_receipts', filter: `message_id=in.(${messages.map(m => m.id).join(',')})` },
         (payload) => {
           console.log('[ChatMessageArea] New message receipt received!', payload);
-          fetchMessages();
+          fetchMessages(); // Re-fetch to update seen status
         }
       )
       .subscribe();
@@ -167,6 +172,7 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
         { event: '*', schema: 'public', table: 'typing_status', filter: `conversation_id=eq.${conversation.id}` },
         (payload) => {
           console.log('[ChatMessageArea] Typing status change received!', payload);
+          // Fetch typing users to update the list
           fetchTypingUsers();
         }
       )
@@ -176,12 +182,14 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
       supabase.removeChannel(messagesChannel);
       supabase.removeChannel(typingChannel);
     };
-  }, [conversation.id, fetchMessages, messages]);
+  }, [conversation.id, fetchMessages, messages]); // Added messages to dependency array to update filter for receipts
 
+  // Effect for scrolling to bottom when messages change
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
+  // Function to fetch typing users
   const fetchTypingUsers = useCallback(async () => {
     if (!currentUser) return;
 
@@ -199,7 +207,7 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
         `
       )
       .eq('conversation_id', conversation.id)
-      .neq('user_id', currentUser.id);
+      .neq('user_id', currentUser.id); // Exclude current user's own typing status
 
     if (error) {
       console.error("[ChatMessageArea] Error fetching typing status:", error);
@@ -209,9 +217,10 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
         .map((ts: any) => ({
           user_id: ts.user_id,
           last_typed_at: ts.last_typed_at,
-          profiles: ts.profiles || null, // Directly assign or null
+          profiles: Array.isArray(ts.profiles) ? ts.profiles[0] : ts.profiles,
         }))
         .filter(ts => {
+          // Only consider users who typed recently (e.g., in the last few seconds)
           const lastTyped = new Date(ts.last_typed_at).getTime();
           const now = new Date().getTime();
           return (now - lastTyped) < TYPING_INDICATOR_TIMEOUT_MS;
@@ -221,10 +230,11 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
     }
   }, [conversation.id, currentUser]);
 
+  // Periodically clean up stale typing indicators
   useEffect(() => {
     const interval = setInterval(() => {
       fetchTypingUsers();
-    }, TYPING_INDICATOR_TIMEOUT_MS / 2);
+    }, TYPING_INDICATOR_TIMEOUT_MS / 2); // Check every half timeout duration
 
     return () => clearInterval(interval);
   }, [fetchTypingUsers]);
@@ -255,12 +265,14 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
   const handleMessageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setMessageInput(e.target.value);
 
+    // Debounce typing status updates
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
-    updateTypingStatus(true);
+    updateTypingStatus(true); // Mark as typing immediately
 
     typingTimeoutRef.current = setTimeout(() => {
+      // After a delay, if no more typing, consider user stopped typing
       updateTypingStatus(false);
     }, TYPING_INDICATOR_TIMEOUT_MS);
   };
@@ -272,6 +284,7 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
     await onSendMessage(messageInput);
     setMessageInput("");
     setIsSendingMessage(false);
+    // Also update typing status to 'not typing' after sending a message
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
@@ -299,7 +312,7 @@ export const ChatMessageArea = ({ conversation, onSendMessage, currentUser }: Ch
     if (message.sender_id !== currentUser.id || !message.message_receipts) return false;
 
     const otherParticipants = conversation.conversation_participants.filter(p => p.user_id !== currentUser.id);
-    if (otherParticipants.length === 0) return false;
+    if (otherParticipants.length === 0) return false; // No other participants to see it
 
     return otherParticipants.every(otherP =>
       message.message_receipts?.some(receipt => receipt.user_id === otherP.user_id)
