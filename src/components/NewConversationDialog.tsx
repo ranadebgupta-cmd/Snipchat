@@ -57,11 +57,25 @@ export const NewConversationDialog = ({
       }
 
       setIsSearching(true);
-      const { data, error } = await supabase
+      let query = supabase
         .from("profiles")
         .select("id, first_name, last_name, avatar_url")
-        .or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%`) // Search by first OR last name
         .neq("id", currentUser?.id); // Exclude current user
+
+      const searchParts = searchTerm.trim().split(/\s+/).filter(Boolean);
+
+      if (searchParts.length > 0) {
+        // Construct a complex OR condition for each search part
+        // Example: if searchTerm is "John Doe", it will search for
+        // (first_name ILIKE '%john%' OR last_name ILIKE '%john%') AND (first_name ILIKE '%doe%' OR last_name ILIKE '%doe%')
+        const conditions = searchParts.map(part => {
+          const lowerCasePart = part.toLowerCase();
+          return `or(first_name.ilike.%${lowerCasePart}%,last_name.ilike.%${lowerCasePart}%)`;
+        }).join(',');
+        query = query.or(conditions);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error("Error searching users:", error);
