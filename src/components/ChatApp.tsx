@@ -8,6 +8,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { showError } from "@/utils/toast";
 import { User } from "@supabase/supabase-js";
 import { Spinner } from "./Spinner";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable"; // Import resizable components
 
 // Define types for Supabase data
 interface Profile {
@@ -213,29 +218,33 @@ export const ChatApp = () => {
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground">
-      <div className="w-1/4 border-r border-border">
+    <ResizablePanelGroup
+      direction="horizontal"
+      className="flex h-screen bg-background text-foreground"
+    >
+      <ResizablePanel defaultSize={25} minSize={15}>
         <ChatSidebar
           conversations={conversations}
           selectedConversationId={selectedConversationId}
           onSelectConversation={setSelectedConversationId}
           currentUser={user}
         />
-      </div>
-      <div className="flex-1 flex flex-col">
+      </ResizablePanel>
+      <ResizableHandle withHandle />
+      <ResizablePanel defaultSize={75} minSize={30}>
         {selectedConversation ? (
           <ChatMessageArea
             conversation={selectedConversation}
             onSendMessage={handleSendMessage}
             currentUser={user}
-            onConversationDeleted={handleConversationDeleted} // Pass the new callback
+            onConversationDeleted={handleConversationDeleted}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
             Select a conversation to start chatting or start a new one.
           </div>
         )}
-      </div>
-    </div>
+      </ResizablePanel>
+    </ResizablePanelGroup>
   );
 };
