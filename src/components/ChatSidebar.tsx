@@ -5,7 +5,7 @@ import { User } from "@supabase/supabase-js";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { SupabaseConversation } from "@/components/ChatApp";
-import { PlusCircle, LogOut, UserPlus, X } from "lucide-react"; // Import LogOut, UserPlus, X icons
+import { PlusCircle, LogOut } from "lucide-react"; // Import LogOut icon
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,12 +18,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { showError, showSuccess } from "@/utils/toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { Spinner } from "./Spinner"; // Import Spinner
 
 interface ChatSidebarProps {
   conversations: SupabaseConversation[];
@@ -37,14 +35,6 @@ interface ConversationItemProps {
   isSelected: boolean;
   onSelect: (id: string) => void;
   currentUser: User;
-}
-
-// Define a Profile type for search results
-interface SearchProfile {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  avatar_url: string | null;
 }
 
 const ConversationItem = ({
@@ -136,82 +126,16 @@ export const ChatSidebar = ({
 }: ChatSidebarProps) => {
   const [isNewChatDialogOpen, setIsNewChatDialogOpen] = useState(false);
   const [newChatName, setNewChatName] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchProfile[]>([]);
-  const [selectedNewChatParticipants, setSelectedNewChatParticipants] = useState<SearchProfile[]>([]);
-  const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+  const [newChatParticipantEmail, setNewChatParticipantEmail] = useState("");
   const [isCreatingChat, setIsCreatingChat] = useState(false);
-
-  // Debounce search term
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      if (searchTerm.trim()) {
-        handleSearchUsers(searchTerm);
-      } else {
-        setSearchResults([]);
-      }
-    }, 300); // 300ms debounce
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm]);
-
-  const handleSearchUsers = useCallback(async (term: string) => {
-    if (!term.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    setIsSearchingUsers(true);
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, avatar_url')
-        .or(`first_name.ilike.%${term}%,last_name.ilike.%${term}%`)
-        .neq('id', currentUser.id); // Exclude current user from search results
-
-      if (error) {
-        console.error("[ChatSidebar] Error searching users:", error);
-        showError("Failed to search users.");
-        setSearchResults([]);
-      } else {
-        setSearchResults(data || []);
-      }
-    } catch (error: any) {
-      console.error("[ChatSidebar] Error searching users:", error);
-      showError(`Failed to search users: ${error.message || "Unknown error"}`);
-    } finally {
-      setIsSearchingUsers(false);
-    }
-  }, [currentUser.id]);
-
-  const handleAddParticipantToNewChat = (profile: SearchProfile) => {
-    if (!selectedNewChatParticipants.some(p => p.id === profile.id)) {
-      setSelectedNewChatParticipants(prev => [...prev, profile]);
-      setSearchTerm(""); // Clear search term after adding
-      setSearchResults([]); // Clear search results
-    }
-  };
-
-  const handleRemoveParticipantFromNewChat = (profileId: string) => {
-    setSelectedNewChatParticipants(prev => prev.filter(p => p.id !== profileId));
-  };
 
   const handleCreateNewChat = async () => {
     setIsCreatingChat(true);
     try {
-      const participantsToInclude = [
-        currentUser,
-        ...selectedNewChatParticipants.map(p => ({ id: p.id }))
-      ];
-
-      if (participantsToInclude.length < 2) {
-        showError("Please select at least one other participant.");
-        return;
-      }
-
       // 1. Create the conversation
       const { data: conversationData, error: conversationError } = await supabase
         .from('conversations')
-        .insert({ name: newChatName.trim() || null }) // Allow null for 1-on-1 chats
+        .insert({ name: newChatName || null }) // Allow null for 1-on-1 chats
         .select()
         .single();
 
@@ -221,25 +145,39 @@ export const ChatSidebar = ({
 
       const newConversationId = conversationData.id;
 
-      // 2. Add all selected participants (including current user)
-      const participantInserts = participantsToInclude.map(p => ({
-        conversation_id: newConversationId,
-        user_id: p.id,
-      }));
-
-      const { error: participantsError } = await supabase
+      // 2. Add current user as participant
+      const { error: currentUserParticipantError } = await supabase
         .from('conversation_participants')
-        .insert(participantInserts);
+        .insert({ conversation_id: newConversationId, user_id: currentUser.id });
 
-      if (participantsError) {
-        throw participantsError;
+      if (currentUserParticipantError) {
+        throw currentUserParticipantError;
+      }
+
+      // 3. If participant email is provided, find user and add them
+      if (newChatParticipantEmail) {
+        const { data: participantProfile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', newChatParticipantEmail) // Assuming email is stored in profiles
+          .single();
+
+        if (profileError || !participantProfile) {
+          throw new Error("Participant not found or error fetching profile.");
+        }
+
+        const { error: otherUserParticipantError } = await supabase
+          .from('conversation_participants')
+          .insert({ conversation_id: newConversationId, user_id: participantProfile.id });
+
+        if (otherUserParticipantError) {
+          throw otherUserParticipantError;
+        }
       }
 
       showSuccess("New chat created successfully!");
       setNewChatName("");
-      setSearchTerm("");
-      setSearchResults([]);
-      setSelectedNewChatParticipants([]);
+      setNewChatParticipantEmail("");
       setIsNewChatDialogOpen(false);
       onSelectConversation(newConversationId); // Select the newly created chat
     } catch (error: any) {
@@ -267,19 +205,18 @@ export const ChatSidebar = ({
     <div className="flex flex-col h-full border-r bg-sidebar text-sidebar-foreground">
       <div className="p-4 border-b flex items-center justify-between">
         <h2 className="text-xl font-semibold">Chats</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2"> {/* Group buttons */}
           <Dialog open={isNewChatDialogOpen} onOpenChange={setIsNewChatDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="ghost" size="icon" className="text-sidebar-foreground hover:text-sidebar-primary">
                 <PlusCircle className="h-5 w-5" />
-                <span className="sr-only">New Chat</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
                 <DialogTitle>Create New Chat</DialogTitle>
                 <DialogDescription>
-                  Start a new conversation with one or more users.
+                  Start a new conversation. You can create a group chat or a 1-on-1 chat.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -292,67 +229,25 @@ export const ChatSidebar = ({
                     value={newChatName}
                     onChange={(e) => setNewChatName(e.target.value)}
                     className="col-span-3"
-                    placeholder="e.g., Team Project Discussion (for group chats)"
+                    placeholder="e.g., Team Project Discussion"
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="searchUsers" className="text-right">
-                    Add Participants
+                  <Label htmlFor="participantEmail" className="text-right">
+                    Add Participant (Email)
                   </Label>
-                  <div className="col-span-3">
-                    <Input
-                      id="searchUsers"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="Search by name..."
-                      className="mb-2"
-                    />
-                    {isSearchingUsers && <Spinner size="sm" className="ml-2" />}
-                    {searchResults.length > 0 && (
-                      <ScrollArea className="h-[100px] w-full rounded-md border p-2 mb-2">
-                        {searchResults.map((profile) => (
-                          <div key={profile.id} className="flex items-center justify-between py-1">
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-6 w-6">
-                                <AvatarImage src={profile.avatar_url || "/placeholder.svg"} />
-                                <AvatarFallback>{profile.first_name?.charAt(0) || "U"}</AvatarFallback>
-                              </Avatar>
-                              <span>{`${profile.first_name || ""} ${profile.last_name || ""}`.trim()}</span>
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleAddParticipantToNewChat(profile)}
-                              disabled={selectedNewChatParticipants.some(p => p.id === profile.id)}
-                            >
-                              <UserPlus className="h-4 w-4 mr-1" /> Add
-                            </Button>
-                          </div>
-                        ))}
-                      </ScrollArea>
-                    )}
-                    {selectedNewChatParticipants.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {selectedNewChatParticipants.map(p => (
-                          <Badge key={p.id} variant="secondary" className="flex items-center gap-1">
-                            {`${p.first_name || ""} ${p.last_name || ""}`.trim()}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground"
-                              onClick={() => handleRemoveParticipantFromNewChat(p.id)}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <Input
+                    id="participantEmail"
+                    type="email"
+                    value={newChatParticipantEmail}
+                    onChange={(e) => setNewChatParticipantEmail(e.target.value)}
+                    className="col-span-3"
+                    placeholder="e.g., user@example.com"
+                  />
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={handleCreateNewChat} disabled={isCreatingChat || selectedNewChatParticipants.length === 0}>
+                <Button onClick={handleCreateNewChat} disabled={isCreatingChat}>
                   {isCreatingChat ? "Creating..." : "Create Chat"}
                 </Button>
               </DialogFooter>
