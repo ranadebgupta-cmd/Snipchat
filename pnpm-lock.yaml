@@ -17,9 +17,6 @@ importers:
       '@capacitor/ios':
         specifier: ^8.0.0
         version: 8.0.0(@capacitor/core@8.0.0)
-      '@capacitor/push-notifications':
-        specifier: ^8.0.0
-        version: 8.0.0(@capacitor/core@8.0.0)
       '@hookform/resolvers':
         specifier: ^3.9.0
         version: 3.10.0(react-hook-form@7.71.0(react@18.3.1))
@@ -276,11 +273,6 @@ packages:
     resolution: {integrity: sha512-gwSn6X4uHYNHlM8zZmVmM1zjEhexxbHpPSSnH1DZkp8o3zdK/RmH8tmDma+3zPZrhhTSrMC7sT24dKTOvV8www==}
     peerDependencies:
       '@capacitor/core': ^8.0.0
-
-  '@capacitor/push-notifications@8.0.0':
-    resolution: {integrity: sha512-xJWQLqAfC8b2ETqAPmwDnkKB4t/lVrbYc2D8VpA2fSu10JFSL/R722Vk0Lfl9Lo9WusmyIiQbVfILNQ3iFNGKw==}
-    peerDependencies:
-      '@capacitor/core': '>=8.0.0'
 
   '@dyad-sh/react-vite-component-tagger@0.8.0':
     resolution: {integrity: sha512-97DrCLm4+kpy5fp90cLfuhjhLlhi5/p0nzCU9/pU4V9/aIpQCb+RQ/E3BJdzpMOcoieR81zPZTEiLTW5CYKgSQ==}
@@ -2904,10 +2896,6 @@ snapshots:
       tslib: 2.8.1
 
   '@capacitor/ios@8.0.0(@capacitor/core@8.0.0)':
-    dependencies:
-      '@capacitor/core': 8.0.0
-
-  '@capacitor/push-notifications@8.0.0(@capacitor/core@8.0.0)':
     dependencies:
       '@capacitor/core': 8.0.0
 

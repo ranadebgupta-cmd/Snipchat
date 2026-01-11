@@ -254,7 +254,10 @@ export const ChatApp = () => {
               onSendMessage={handleSendMessage}
               currentUser={user}
               onConversationDeleted={handleConversationDeleted}
-              onCloseChat={() => setSelectedConversationId(null)} // Back button for mobile
+              onCloseChat={() => {
+                console.log("[ChatApp] Back button clicked on mobile.");
+                setSelectedConversationId(null);
+              }} // Added console log here
             />
           ) : (
             <div className="flex-1 flex items-center justify-center p-4 h-full">
