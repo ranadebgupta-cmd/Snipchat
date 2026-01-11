@@ -4,6 +4,7 @@ import React from 'react';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
+import { MessageCircle } from 'lucide-react';
 
 const Login = () => {
   const gradientBackgroundClasses = "min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-400 to-purple-600 dark:from-gray-900 dark:to-indigo-950 p-4 animate-gradient-xy";
@@ -23,10 +24,23 @@ const Login = () => {
           background-size: 400% 400%;
           animation: gradient-xy 15s ease infinite;
         }
+        @keyframes bounce-slow {
+          0%, 100% {
+            transform: translateY(-5%);
+            animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+          }
+          50% {
+            transform: translateY(0);
+            animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+          }
+        }
+        .animate-bounce-slow {
+          animation: bounce-slow 2s infinite;
+        }
       `}</style>
-      <div className="w-full max-w-md p-8 space-y-8 bg-white dark:bg-gray-800 rounded-xl shadow-2xl transform transition-all duration-300 hover:scale-105 hover:shadow-3xl">
+      <div className="w-full max-w-md p-8 space-y-8 bg-white dark:bg-gray-800 rounded-xl shadow-2xl transform transition-all duration-300 hover:scale-105 hover:shadow-3xl animate-fade-in">
         <div className="flex flex-col items-center space-y-4">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-message-circle h-16 w-16 text-primary dark:text-primary-foreground animate-bounce-slow"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+          <MessageCircle className="h-16 w-16 text-primary dark:text-primary-foreground animate-bounce-slow" />
           <h2 className="text-4xl font-extrabold text-center text-gray-900 dark:text-white tracking-tight">
             Welcome to Snipchat
           </h2>

@@ -270,16 +270,31 @@ export const ChatMessageArea = ({
             const sender = message.profiles || conversation.conversation_participants.find(p => p.user_id === message.sender_id)?.profiles;
             const isCurrentUser = message.sender_id === currentUser.id;
             return (
-              <div key={message.id} className={cn("flex items-end gap-2", isCurrentUser ? "justify-end" : "justify-start")}>
+              <div
+                key={message.id}
+                className={cn(
+                  "flex items-end gap-2 animate-in fade-in-0 slide-in-from-bottom-4 duration-300",
+                  isCurrentUser ? "justify-end" : "justify-start"
+                )}
+              >
                 {!isCurrentUser && (
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={sender?.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${sender?.first_name || "U"}`} />
                     <AvatarFallback>{sender?.first_name?.charAt(0) || "U"}</AvatarFallback>
                   </Avatar>
                 )}
-                <div className={cn("max-w-[75%] p-3 rounded-xl", isCurrentUser ? "bg-blue-500 text-white rounded-br-none" : "bg-gray-200 dark:bg-gray-700 rounded-bl-none")}>
-                  <p className="text-base">{message.content}</p>
-                  <p className="text-xs text-right mt-1 opacity-80">{format(new Date(message.created_at), 'HH:mm')}</p>
+                <div
+                  className={cn(
+                    "max-w-[75%] p-3 rounded-2xl shadow-md",
+                    isCurrentUser
+                      ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-br-sm"
+                      : "bg-white dark:bg-gray-700 rounded-bl-sm"
+                  )}
+                >
+                  <p className="text-base break-words">{message.content}</p>
+                  <p className={cn("text-xs text-right mt-1", isCurrentUser ? "text-blue-100" : "text-gray-500 dark:text-gray-400")}>
+                    {format(new Date(message.created_at), 'HH:mm')}
+                  </p>
                 </div>
               </div>
             );
