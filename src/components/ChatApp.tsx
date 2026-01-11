@@ -238,13 +238,13 @@ export const ChatApp = () => {
         className="flex h-screen bg-background text-foreground"
       >
         <ResizablePanel
-          defaultSize={isMobile && selectedConversationId ? 0 : 25} // On mobile, if chat selected, sidebar is 0. Else 100. Desktop is 25.
-          minSize={isMobile && selectedConversationId ? 0 : 15}
-          maxSize={isMobile && selectedConversationId ? 0 : 50}
+          defaultSize={isMobile ? (selectedConversationId ? 0 : 100) : 25} // Mobile: 0 if chat selected, 100 if no chat. Desktop: 25.
+          minSize={isMobile ? 0 : 15} // Allow full collapse on mobile, 15% on desktop
+          maxSize={isMobile ? 100 : 50} // Allow full expansion on mobile, 50% on desktop
           collapsible={isMobile}
           collapsedSize={0}
-          onCollapse={() => isMobile && setSelectedConversationId(null)}
-          onExpand={() => isMobile && setSelectedConversationId(null)}
+          onCollapse={() => isMobile && setSelectedConversationId(null)} // When sidebar collapses, clear selected chat
+          onExpand={() => isMobile && setSelectedConversationId(null)} // When sidebar expands, clear selected chat (to show full sidebar)
         >
           <ChatSidebar
             conversations={conversations}
@@ -255,13 +255,13 @@ export const ChatApp = () => {
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel
-          defaultSize={isMobile && selectedConversationId ? 75 : 0} // On mobile, if chat selected, chat area is 100. Else 0. Desktop is 75.
-          minSize={isMobile && selectedConversationId ? 30 : 0}
-          maxSize={isMobile && selectedConversationId ? 85 : 0}
+          defaultSize={isMobile ? (selectedConversationId ? 100 : 0) : 75} // Mobile: 100 if chat selected, 0 if no chat. Desktop: 75.
+          minSize={isMobile ? 0 : 30} // Allow full collapse on mobile, 30% on desktop
+          maxSize={isMobile ? 100 : 85} // Allow full expansion on mobile, 85% on desktop
           collapsible={isMobile}
           collapsedSize={0}
-          onCollapse={() => isMobile && setSelectedConversationId(null)}
-          onExpand={() => isMobile && selectedConversationId && setSelectedConversationId(selectedConversationId)}
+          onCollapse={() => isMobile && setSelectedConversationId(null)} // When chat collapses, clear selected chat
+          onExpand={() => { /* No specific action needed on expand, state should already be correct */ }}
         >
           {selectedConversation ? (
             <ChatMessageArea
