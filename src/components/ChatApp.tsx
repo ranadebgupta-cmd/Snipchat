@@ -46,8 +46,10 @@ export const ChatApp = () => {
 
   // Function to fetch conversations without managing selectedConversationId
   const fetchAndSetConversations = useCallback(async () => {
+    console.log("[ChatApp] fetchAndSetConversations called.");
     if (!user) {
       setConversations([]);
+      console.log("[ChatApp] No user, clearing conversations.");
       return;
     }
 
@@ -127,19 +129,23 @@ export const ChatApp = () => {
       });
 
       setConversations(processedConversations);
+      console.log("[ChatApp] Conversations fetched and set:", processedConversations);
   }, [user]); // Only depends on user
 
   // Effect for initial load and setting selected conversation
   useEffect(() => {
     if (!user || isAuthLoading) {
       setIsLoadingConversations(false);
+      console.log("[ChatApp] Auth loading or no user, skipping initial conversation fetch.");
       return;
     }
 
     const initializeChat = async () => {
       setIsLoadingConversations(true);
+      console.log("[ChatApp] Initializing chat: fetching conversations.");
       await fetchAndSetConversations(); // Fetch conversations
       setIsLoadingConversations(false);
+      console.log("[ChatApp] Initial chat setup complete.");
     };
 
     initializeChat();
@@ -147,27 +153,34 @@ export const ChatApp = () => {
 
   // Effect for real-time subscriptions
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      console.log("[ChatApp] No user, skipping real-time subscriptions.");
+      return;
+    }
 
+    console.log("[ChatApp] Setting up real-time subscriptions for conversations and messages.");
     const channel = supabase
       .channel('public:conversations')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'conversations' },
-        () => {
+        (payload) => {
+          console.log("[ChatApp] Real-time conversation change detected:", payload);
           fetchAndSetConversations(); // Re-fetch on conversation changes
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'messages' },
-        () => {
+        (payload) => {
+          console.log("[ChatApp] Real-time message change detected (for sidebar update):", payload);
           fetchAndSetConversations(); // Re-fetch on message changes (to update latest message snippet)
         }
       )
       .subscribe();
 
     return () => {
+      console.log("[ChatApp] Unsubscribing from real-time channels.");
       supabase.removeChannel(channel);
     };
   }, [user, fetchAndSetConversations]); // Only depends on user and the memoized fetch function
@@ -176,8 +189,10 @@ export const ChatApp = () => {
   useEffect(() => {
     if (conversations.length > 0 && (!selectedConversationId || !conversations.some(c => c.id === selectedConversationId))) {
       setSelectedConversationId(conversations[0].id);
+      console.log("[ChatApp] Setting selected conversation to first available:", conversations[0].id);
     } else if (conversations.length === 0) {
       setSelectedConversationId(null);
+      console.log("[ChatApp] No conversations, clearing selected conversation.");
     }
   }, [conversations, selectedConversationId]); // Only re-run when conversations or selectedConversationId changes
 
@@ -188,6 +203,7 @@ export const ChatApp = () => {
   const handleSendMessage = async (text: string) => {
     if (!user || !selectedConversationId || !text.trim()) return;
 
+    console.log("[ChatApp] Sending message:", text, "to conversation:", selectedConversationId);
     const { error } = await supabase.from('messages').insert({
       conversation_id: selectedConversationId,
       sender_id: user.id,
@@ -195,12 +211,15 @@ export const ChatApp = () => {
     });
 
     if (error) {
-      console.error("Error sending message:", error);
+      console.error("[ChatApp] Error sending message:", error);
       showError("Failed to send message.");
+    } else {
+      console.log("[ChatApp] Message sent successfully.");
     }
   };
 
   const handleConversationDeleted = (deletedConversationId: string) => {
+    console.log("[ChatApp] Handling conversation deletion:", deletedConversationId);
     setConversations(prevConversations => {
       const updatedConversations = prevConversations.filter(
         (conv) => conv.id !== deletedConversationId
@@ -213,6 +232,7 @@ export const ChatApp = () => {
   };
 
   const handleCloseChat = () => {
+    console.log("[ChatApp] Closing chat (mobile view).");
     setSelectedConversationId(null);
   };
 

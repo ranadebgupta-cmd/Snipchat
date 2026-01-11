@@ -66,6 +66,8 @@ export const ChatMessageArea = ({
   };
 
   useEffect(() => {
+    console.log("[ChatMessageArea] Component mounted or conversation changed. Conversation ID:", conversation.id);
+
     const fetchMessages = async () => {
       console.log("[ChatMessageArea] Fetching initial messages for conversation ID:", conversation.id);
       const { data, error } = await supabase
@@ -142,7 +144,7 @@ export const ChatMessageArea = ({
 
           setMessages((prevMessages) => {
             const updatedMessages = [...prevMessages, processedNewMessage];
-            console.log('[ChatMessageArea] Messages updated via real-time:', updatedMessages);
+            console.log('[ChatMessageArea] Messages state updated via real-time:', updatedMessages);
             return updatedMessages;
           });
         }
@@ -156,28 +158,32 @@ export const ChatMessageArea = ({
   }, [conversation.id, conversation.conversation_participants]); // Added conversation.conversation_participants to dependencies
 
   useEffect(() => {
+    console.log("[ChatMessageArea] Messages state updated, scrolling to bottom.");
     scrollToBottom();
   }, [messages]);
 
   const handleSend = () => {
     if (newMessageContent.trim()) {
+      console.log("[ChatMessageArea] Sending message:", newMessageContent);
       onSendMessage(newMessageContent);
       setNewMessageContent("");
     }
   };
 
   const handleDeleteConversation = async () => {
+    console.log("[ChatMessageArea] Attempting to delete conversation:", conversation.id);
     const { error } = await supabase
       .from('conversations')
       .delete()
       .eq('id', conversation.id);
 
     if (error) {
-      console.error("Error deleting conversation:", error);
+      console.error("[ChatMessageArea] Error deleting conversation:", error);
       showError("Failed to delete conversation.");
     } else {
       showSuccess("Conversation deleted successfully!");
       onConversationDeleted(conversation.id);
+      console.log("[ChatMessageArea] Conversation deleted successfully.");
     }
   };
 
@@ -215,6 +221,7 @@ export const ChatMessageArea = ({
       return;
     }
     const participantIds = conversation.conversation_participants.map(p => p.user_id);
+    console.log("[ChatMessageArea] Starting call for conversation:", conversation.id, "with participants:", participantIds);
     startCall(conversation.id, participantIds);
   };
 
