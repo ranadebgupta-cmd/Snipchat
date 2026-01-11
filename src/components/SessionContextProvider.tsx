@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Spinner } from './Spinner';
 import { showError } from '@/utils/toast';
-import { unregisterPushNotifications } from '@/integrations/supabase/pushNotifications'; // Import unregister function
+// Removed import for unregisterPushNotifications
 
 interface SessionContextProps {
   children: React.ReactNode;
@@ -24,9 +24,7 @@ export const SessionContextProvider = ({ children }: SessionContextProps) => {
       setIsLoading(false);
 
       if (_event === 'SIGNED_OUT') {
-        if (session?.user) { // Only unregister if there was a user previously
-          unregisterPushNotifications(session.user.id);
-        }
+        // Removed unregisterPushNotifications call
         if (location.pathname !== '/login') {
           navigate('/login');
           showError("You have been logged out.");
@@ -60,7 +58,7 @@ export const SessionContextProvider = ({ children }: SessionContextProps) => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate, location.pathname, session?.user]); // Add session.user to dependencies
+  }, [navigate, location.pathname, session?.user]);
   
   if (isLoading) {
     return (

@@ -8,33 +8,15 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import { SessionContextProvider } from "./components/SessionContextProvider";
-import { useEffect } from "react";
-import { useAuth } from "./integrations/supabase/auth";
-import { requestPushNotificationPermissions, registerPushNotifications, setupPushNotificationListeners, unregisterPushNotifications } from "./integrations/supabase/pushNotifications";
 import { CallProvider } from "./components/CallProvider"; // Import CallProvider
+import { useAuth } from "./integrations/supabase/auth"; // Keep useAuth for CallProvider
 
 const queryClient = new QueryClient();
 
 const AppContent = () => {
-  const { user } = useAuth();
+  const { user } = useAuth(); // Keep useAuth for CallProvider
 
-  useEffect(() => {
-    if (user) {
-      const setupNotifications = async () => {
-        const granted = await requestPushNotificationPermissions();
-        if (granted) {
-          setupPushNotificationListeners(user.id);
-          registerPushNotifications(user.id);
-        }
-      };
-      setupNotifications();
-
-      return () => {
-        // Optionally unregister on component unmount or user logout
-        // unregisterPushNotifications(user.id); // This is handled in SessionContextProvider on SIGNED_OUT
-      };
-    }
-  }, [user]);
+  // Removed useEffect for push notification setup
 
   return (
     <BrowserRouter>
