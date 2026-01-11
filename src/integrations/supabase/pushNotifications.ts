@@ -1,9 +1,12 @@
 "use client";
 
 import { PushNotifications } from '@capacitor/push-notifications';
-import { Capacitor } from '@capacitor/core'; // Import Capacitor to get platform
+// import { Capacitor } from '@capacitor/core'; // Removed direct import
 import { supabase } from './client';
 import { showSuccess, showError } from '@/utils/toast';
+
+// Declare Capacitor as a global variable, as it's injected by the Capacitor runtime
+declare const Capacitor: any; 
 
 interface DeviceToken {
   id?: string;
@@ -46,6 +49,7 @@ export const registerPushNotifications = async (userId: string) => {
 export const setupPushNotificationListeners = (userId: string) => {
   PushNotifications.addListener('registration', async (token) => {
     console.log('[PushNotifications] Push registration success, token:', token.value);
+    // Access Capacitor globally
     const platform = Capacitor.getPlatform(); // Get actual platform
     const deviceToken: DeviceToken = {
       user_id: userId,
