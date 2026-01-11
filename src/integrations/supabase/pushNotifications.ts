@@ -1,6 +1,7 @@
 "use client";
 
 import { PushNotifications } from '@capacitor/push-notifications';
+import { Capacitor } from '@capacitor/core'; // Import Capacitor to get platform
 import { supabase } from './client';
 import { showSuccess, showError } from '@/utils/toast';
 
@@ -45,10 +46,11 @@ export const registerPushNotifications = async (userId: string) => {
 export const setupPushNotificationListeners = (userId: string) => {
   PushNotifications.addListener('registration', async (token) => {
     console.log('[PushNotifications] Push registration success, token:', token.value);
+    const platform = Capacitor.getPlatform(); // Get actual platform
     const deviceToken: DeviceToken = {
       user_id: userId,
       token: token.value,
-      platform: 'web', // Capacitor will determine actual platform (iOS/Android)
+      platform: platform === 'web' ? 'web' : (platform === 'ios' ? 'ios' : 'android'), // Map to defined types
     };
 
     // Upsert the device token to Supabase
