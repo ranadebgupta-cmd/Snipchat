@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Spinner } from './Spinner';
 import { showError } from '@/utils/toast';
+import { unregisterPushNotifications } from '@/integrations/supabase/pushNotifications'; // Import unregister function
 
 interface SessionContextProps {
   children: React.ReactNode;
@@ -22,7 +23,10 @@ export const SessionContextProvider = ({ children }: SessionContextProps) => {
       setSession(currentSession);
       setIsLoading(false);
 
-      if (_event === 'SIGNED_OUT') { // Removed 'USER_DELETED'
+      if (_event === 'SIGNED_OUT') {
+        if (session?.user) { // Only unregister if there was a user previously
+          unregisterPushNotifications(session.user.id);
+        }
         if (location.pathname !== '/login') {
           navigate('/login');
           showError("You have been logged out.");
@@ -56,8 +60,8 @@ export const SessionContextProvider = ({ children }: SessionContextProps) => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate, location.pathname]);
-
+  }, [navigate, location.pathname, session?.user]); // Add session.user to dependencies
+  
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen w-screen bg-background">
