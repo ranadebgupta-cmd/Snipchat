@@ -37,6 +37,15 @@ export interface SupabaseConversation {
   latest_message_created_at: string | null;
 }
 
+// Define Message type for real-time updates
+interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+}
+
 export const ChatApp = () => {
   const { user, isLoading: isAuthLoading } = useAuth();
   const [conversations, setConversations] = useState<SupabaseConversation[]>([]);
@@ -166,15 +175,39 @@ export const ChatApp = () => {
         { event: '*', schema: 'public', table: 'conversations' },
         (payload) => {
           console.log("[ChatApp] Real-time conversation change detected:", payload);
-          fetchAndSetConversations(); // Re-fetch on conversation changes
+          fetchAndSetConversations(); // Re-fetch on conversation changes (e.g., new conversation created)
         }
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'messages' },
+        { event: 'INSERT', schema: 'public', table: 'messages' }, // Listen only for new messages
         (payload) => {
-          console.log("[ChatApp] Real-time message change detected (for sidebar update):", payload);
-          fetchAndSetConversations(); // Re-fetch on message changes (to update latest message snippet)
+          console.log("[ChatApp] Real-time new message detected (for sidebar update):", payload);
+          const newMessage = payload.new as Message;
+
+          setConversations(prevConversations => {
+            const updatedConversations = prevConversations.map(conv => {
+              if (conv.id === newMessage.conversation_id) {
+                return {
+                  ...conv,
+                  latest_message_content: newMessage.content,
+                  latest_message_sender_id: newMessage.sender_id,
+                  latest_message_created_at: newMessage.created_at,
+                };
+              }
+              return conv;
+            });
+
+            // Sort to bring the updated conversation to the top
+            updatedConversations.sort((a, b) => {
+              const dateA = a.latest_message_created_at ? new Date(a.latest_message_created_at).getTime() : 0;
+              const dateB = b.latest_message_created_at ? new Date(b.latest_message_created_at).getTime() : 0;
+              return dateB - dateA;
+            });
+
+            console.log("[ChatApp] Conversations state updated for sidebar (real-time message):", updatedConversations);
+            return updatedConversations;
+          });
         }
       )
       .subscribe();
