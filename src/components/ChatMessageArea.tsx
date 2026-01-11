@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { Send, Trash2, ArrowLeft, PhoneCall } from "lucide-react"; // Import ArrowLeft, PhoneCall
+import { Send, Trash2, PhoneCall } from "lucide-react"; // Removed ArrowLeft
 import { SupabaseConversation } from "./ChatApp";
 import {
   AlertDialog,
@@ -45,7 +45,7 @@ interface ChatMessageAreaProps {
   onSendMessage: (text: string) => void;
   currentUser: User;
   onConversationDeleted: (conversationId: string) => void;
-  onCloseChat?: () => void; // New optional prop for closing chat (mobile back button)
+  // onCloseChat?: () => void; // Removed optional prop
 }
 
 export const ChatMessageArea = ({
@@ -53,7 +53,7 @@ export const ChatMessageArea = ({
   onSendMessage,
   currentUser,
   onConversationDeleted,
-  onCloseChat, // Destructure the new prop
+  // onCloseChat, // Removed from destructuring
 }: ChatMessageAreaProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessageContent, setNewMessageContent] = useState("");
@@ -242,12 +242,7 @@ export const ChatMessageArea = ({
     <div className="flex flex-col h-full bg-white dark:bg-gray-800 text-foreground shadow-lg rounded-lg overflow-hidden">
       <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md">
         <div className="flex items-center gap-3">
-          {onCloseChat && (
-            <Button variant="ghost" size="icon" onClick={onCloseChat} className="text-white hover:bg-white/20">
-              <ArrowLeft className="h-5 w-5" />
-              <span className="sr-only">Back to conversations</span>
-            </Button>
-          )}
+          {/* Removed onCloseChat button */}
           <Avatar className="h-10 w-10 border-2 border-white">
             <AvatarImage src={getConversationAvatar()} alt={getConversationTitle()} />
             <AvatarFallback className="bg-white text-blue-600 font-bold">

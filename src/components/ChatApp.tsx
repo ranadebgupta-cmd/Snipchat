@@ -13,7 +13,6 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { MessageCircle } from "lucide-react"; // Import MessageCircle for the welcome message
 
 // Define types for Supabase data
@@ -42,7 +41,6 @@ export const ChatApp = () => {
   const [conversations, setConversations] = useState<SupabaseConversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
-  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!user || isAuthLoading) {
@@ -198,10 +196,6 @@ export const ChatApp = () => {
     });
   };
 
-  const handleCloseChat = () => {
-    setSelectedConversationId(null);
-  };
-
   if (isAuthLoading || isLoadingConversations) {
     return (
       <div className="flex items-center justify-center h-screen w-screen bg-background">
@@ -238,13 +232,10 @@ export const ChatApp = () => {
         className="flex h-screen bg-background text-foreground"
       >
         <ResizablePanel
-          defaultSize={isMobile ? (selectedConversationId ? 0 : 100) : 25} // Mobile: 0 if chat selected, 100 if no chat. Desktop: 25.
-          minSize={isMobile ? 0 : 15} // Allow full collapse on mobile, 15% on desktop
-          maxSize={isMobile ? 100 : 50} // Allow full expansion on mobile, 50% on desktop
-          collapsible={isMobile}
-          collapsedSize={0}
-          onCollapse={() => isMobile && setSelectedConversationId(null)} // When sidebar collapses, clear selected chat
-          onExpand={() => isMobile && setSelectedConversationId(null)} // When sidebar expands, clear selected chat (to show full sidebar)
+          defaultSize={25} // Default 25% for sidebar on all devices
+          minSize={15} // Minimum 15% for sidebar on all devices
+          maxSize={50} // Maximum 50% for sidebar on all devices
+          collapsible={true} // Allow collapsing by double-clicking handle
         >
           <ChatSidebar
             conversations={conversations}
@@ -255,13 +246,10 @@ export const ChatApp = () => {
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel
-          defaultSize={isMobile ? (selectedConversationId ? 100 : 0) : 75} // Mobile: 100 if chat selected, 0 if no chat. Desktop: 75.
-          minSize={isMobile ? 0 : 30} // Allow full collapse on mobile, 30% on desktop
-          maxSize={isMobile ? 100 : 85} // Allow full expansion on mobile, 85% on desktop
-          collapsible={isMobile}
-          collapsedSize={0}
-          onCollapse={() => isMobile && setSelectedConversationId(null)} // When chat collapses, clear selected chat
-          onExpand={() => { /* No specific action needed on expand, state should already be correct */ }}
+          defaultSize={75} // Default 75% for chat area on all devices
+          minSize={30} // Minimum 30% for chat area on all devices
+          maxSize={85} // Maximum 85% for chat area on all devices
+          collapsible={true} // Allow collapsing by double-clicking handle
         >
           {selectedConversation ? (
             <ChatMessageArea
@@ -269,7 +257,7 @@ export const ChatApp = () => {
               onSendMessage={handleSendMessage}
               currentUser={user}
               onConversationDeleted={handleConversationDeleted}
-              onCloseChat={isMobile ? handleCloseChat : undefined}
+              // onCloseChat prop removed as it's no longer needed with consistent resizable panels
             />
           ) : (
             <div className="flex-1 flex items-center justify-center p-4">
