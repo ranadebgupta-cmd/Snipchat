@@ -38,7 +38,7 @@ interface Message {
   sender_id: string;
   content: string;
   created_at: string;
-  profiles: Profile | null;
+  profiles: Profile | null; // Added profiles property
 }
 
 interface ChatMessageAreaProps {
@@ -133,13 +133,14 @@ export const ChatMessageArea = ({
           const newMessageData = payload.new as Message; 
 
           // Find the sender's profile from the current conversation's participants
+          // This ensures the profile is available for display even if not directly in payload
           const senderProfile = conversation.conversation_participants.find(
             (p) => p.user_id === newMessageData.sender_id
           )?.profiles;
 
           console.log('[ChatMessageArea] New message sender ID:', newMessageData.sender_id);
           console.log('[ChatMessageArea] Conversation participants:', conversation.conversation_participants);
-          console.log('[ChatMessageArea] Found sender profile:', senderProfile);
+          console.log('[ChatMessageArea] Found sender profile for real-time message:', senderProfile);
 
           const processedNewMessage: Message = {
             ...newMessageData,
