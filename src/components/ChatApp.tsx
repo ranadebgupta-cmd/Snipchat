@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react"; // Import useCallback
+import React, { useState, useEffect, useCallback } from "react";
 import { ChatSidebar } from "./ChatSidebar";
 import { ChatMessageArea } from "./ChatMessageArea";
 import { useAuth } from "@/integrations/supabase/auth";
@@ -44,15 +44,13 @@ export const ChatApp = () => {
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const isMobile = useIsMobile();
 
-  // Memoize fetchConversations to ensure its reference is stable
-  const fetchConversations = useCallback(async () => {
-    if (!user) { // Ensure user is available before fetching
-      setIsLoadingConversations(false);
+  // Function to fetch conversations without managing selectedConversationId
+  const fetchAndSetConversations = useCallback(async () => {
+    if (!user) {
+      setConversations([]);
       return;
     }
 
-    setIsLoadingConversations(true);
-    
     const { data: rawConversationsData, error: conversationsError } = await supabase
       .from('conversation_participants')
       .select(
@@ -78,7 +76,7 @@ export const ChatApp = () => {
     if (conversationsError) {
       console.error("[ChatApp] Error fetching conversations:", conversationsError);
       showError(`Failed to load conversations: ${conversationsError.message}`);
-      setIsLoadingConversations(false);
+      setConversations([]);
       return;
     }
 
@@ -93,8 +91,7 @@ export const ChatApp = () => {
     if (latestMessagesError) {
       console.error("[ChatApp] Error fetching latest messages:", latestMessagesError);
       showError(`Failed to load latest messages: ${latestMessagesError.message}`);
-      setIsLoadingConversations(false);
-      return;
+      // Continue with conversations even if latest messages fail
     }
 
     const latestMessagesMap = new Map(latestMessagesData?.map(msg => [msg.conversation_id, msg]));
@@ -130,24 +127,27 @@ export const ChatApp = () => {
       });
 
       setConversations(processedConversations);
+  }, [user]); // Only depends on user
 
-      // Only update selectedConversationId if it's null or the current one no longer exists
-      if (processedConversations.length > 0 && (!selectedConversationId || !processedConversations.some(c => c.id === selectedConversationId))) {
-        setSelectedConversationId(processedConversations[0].id);
-      } else if (processedConversations.length === 0) {
-        setSelectedConversationId(null);
-      }
-    setIsLoadingConversations(false);
-  }, [user, selectedConversationId]); // Dependencies for useCallback
-
+  // Effect for initial load and setting selected conversation
   useEffect(() => {
     if (!user || isAuthLoading) {
       setIsLoadingConversations(false);
       return;
     }
 
-    // Initial fetch
-    fetchConversations();
+    const initializeChat = async () => {
+      setIsLoadingConversations(true);
+      await fetchAndSetConversations(); // Fetch conversations
+      setIsLoadingConversations(false);
+    };
+
+    initializeChat();
+  }, [user, isAuthLoading, fetchAndSetConversations]); // Re-run when user or auth loading state changes
+
+  // Effect for real-time subscriptions
+  useEffect(() => {
+    if (!user) return;
 
     const channel = supabase
       .channel('public:conversations')
@@ -155,14 +155,14 @@ export const ChatApp = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'conversations' },
         () => {
-          fetchConversations(); // Re-fetch on conversation changes
+          fetchAndSetConversations(); // Re-fetch on conversation changes
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'messages' },
         () => {
-          fetchConversations(); // Re-fetch on message changes (to update latest message snippet)
+          fetchAndSetConversations(); // Re-fetch on message changes (to update latest message snippet)
         }
       )
       .subscribe();
@@ -170,7 +170,16 @@ export const ChatApp = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, isAuthLoading, fetchConversations]); // Dependencies for useEffect
+  }, [user, fetchAndSetConversations]); // Only depends on user and the memoized fetch function
+
+  // Effect to manage selectedConversationId when conversations change
+  useEffect(() => {
+    if (conversations.length > 0 && (!selectedConversationId || !conversations.some(c => c.id === selectedConversationId))) {
+      setSelectedConversationId(conversations[0].id);
+    } else if (conversations.length === 0) {
+      setSelectedConversationId(null);
+    }
+  }, [conversations, selectedConversationId]); // Only re-run when conversations or selectedConversationId changes
 
   const selectedConversation = conversations.find(
     (conv) => conv.id === selectedConversationId
@@ -238,18 +247,18 @@ export const ChatApp = () => {
           animation: gradient-xy 15s ease infinite;
         }
       `}</style>
-      <div className="flex items-center justify-center min-h-screen p-4"> {/* Outer container for app window effect */}
-        <div className="w-full max-w-screen-xl h-[90vh] rounded-xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"> {/* Inner app window */}
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <div className="w-full max-w-screen-xl h-[90vh] rounded-xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
           <ResizablePanelGroup
             direction="horizontal"
             className="h-full"
           >
             <ResizablePanel
-              defaultSize={isMobile && selectedConversationId ? 0 : 30} // On mobile, if chat selected, sidebar is 0. Else 100. Desktop is 30.
-              minSize={isMobile ? 0 : 20} // Allow full collapse on mobile, 20% on desktop
-              maxSize={isMobile ? 100 : 40} // Allow full expansion on mobile, 40% on desktop
+              defaultSize={isMobile && selectedConversationId ? 0 : 30}
+              minSize={isMobile ? 0 : 20}
+              maxSize={isMobile ? 100 : 40}
               collapsible={isMobile}
-              collapsedSize={isMobile ? 0 : 20} // Collapsed size for mobile is 0, for desktop is 20
+              collapsedSize={isMobile ? 0 : 20}
               onCollapse={() => isMobile && setSelectedConversationId(null)}
               onExpand={() => isMobile && setSelectedConversationId(null)}
             >
@@ -262,11 +271,11 @@ export const ChatApp = () => {
             </ResizablePanel>
             <ResizableHandle withHandle />
             <ResizablePanel
-              defaultSize={isMobile && selectedConversationId ? 70 : 0} // On mobile, if chat selected, chat area is 100. Else 0. Desktop is 70.
-              minSize={isMobile ? 0 : 30} // Allow full collapse on mobile, 30% on desktop
-              maxSize={isMobile ? 100 : 80} // Allow full expansion on mobile, 80% on desktop
+              defaultSize={isMobile && selectedConversationId ? 70 : 0}
+              minSize={isMobile ? 0 : 30}
+              maxSize={isMobile ? 100 : 80}
               collapsible={isMobile}
-              collapsedSize={isMobile ? 0 : 30} // Collapsed size for mobile is 0, for desktop is 30
+              collapsedSize={isMobile ? 0 : 30}
               onCollapse={() => isMobile && setSelectedConversationId(null)}
               onExpand={() => { /* No specific action needed on expand, state should already be correct */ }}
             >
@@ -276,7 +285,7 @@ export const ChatApp = () => {
                   onSendMessage={handleSendMessage}
                   currentUser={user}
                   onConversationDeleted={handleConversationDeleted}
-                  onCloseChat={isMobile ? handleCloseChat : undefined} // Pass onCloseChat for mobile back button
+                  onCloseChat={isMobile ? handleCloseChat : undefined}
                 />
               ) : (
                 <div className="flex-1 flex items-center justify-center p-4 h-full bg-gray-50 dark:bg-gray-800">
