@@ -5,7 +5,7 @@ import { User } from "@supabase/supabase-js";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { SupabaseConversation } from "@/components/ChatApp";
-import { PlusCircle, LogOut, UserPlus, X, User as UserIcon, PhoneCall } from "lucide-react"; // Import PhoneCall icon
+import { PlusCircle, LogOut, UserPlus, X, User as UserIcon, Search } from "lucide-react"; // Import Search icon
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,7 +25,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "./Spinner";
 import { useNavigate } from "react-router-dom";
-import { useCall } from "./CallProvider"; // Import useCall
+import { formatDistanceToNowStrict } from 'date-fns'; // Import date-fns for relative time
 
 interface ChatSidebarProps {
   conversations: SupabaseConversation[];
@@ -99,32 +99,39 @@ const ConversationItem = ({
       ? latestMessageContent.substring(0, 27) + "..."
       : latestMessageContent;
 
-    return `${senderFirstName}: ${truncatedContent}`;
+    return `${senderFirstName === currentUser.user_metadata.first_name ? "You" : senderFirstName}: ${truncatedContent}`;
+  };
+
+  const getRelativeTime = (timestamp: string | null) => {
+    if (!timestamp) return "";
+    return formatDistanceToNowStrict(new Date(timestamp), { addSuffix: false });
   };
 
   return (
     <div
       className={cn(
-        "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-200 ease-in-out",
+        "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-200 ease-in-out border-b border-gray-100 dark:border-gray-700",
         isSelected
-          ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md scale-[1.02]"
-          : "hover:bg-muted/50 dark:hover:bg-gray-700 hover:scale-[1.01]"
+          ? "bg-blue-50 dark:bg-gray-700"
+          : "hover:bg-gray-50 dark:hover:bg-gray-800"
       )}
       onClick={() => onSelect(conversation.id)}
     >
-      <Avatar className="h-10 w-10 border-2 border-white/50">
+      <Avatar className="h-12 w-12 border-2 border-gray-200 dark:border-gray-600">
         <AvatarImage src={getDisplayAvatar()} alt={getDisplayName()} />
-        <AvatarFallback className={cn(isSelected ? "bg-white text-blue-600" : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100")}>
+        <AvatarFallback className="bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100">
           {getDisplayName().charAt(0)}
         </AvatarFallback>
       </Avatar>
       <div className="flex-1 overflow-hidden">
-        <p className="font-medium truncate">{getDisplayName()}</p>
+        <div className="flex justify-between items-center">
+          <p className="font-semibold text-lg truncate">{getDisplayName()}</p>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            {getRelativeTime(conversation.latest_message_created_at)}
+          </span>
+        </div>
         <p
-          className={cn(
-            "text-sm truncate",
-            isSelected ? "text-white/80" : "text-muted-foreground dark:text-gray-400"
-          )}
+          className="text-sm text-gray-600 dark:text-gray-400 truncate"
         >
           {displayLatestMessage()}
         </p>
@@ -147,7 +154,6 @@ export const ChatSidebar = ({
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
   const [isCreatingChat, setIsCreatingChat] = useState(false);
   const navigate = useNavigate();
-  const { activeCall } = useCall(); // Use activeCall from context
 
   const handleSearchUsers = useCallback(async (term: string) => {
     if (!term.trim()) {
@@ -272,15 +278,26 @@ export const ChatSidebar = ({
   };
 
   return (
-    <div className="flex flex-col h-full border-r bg-sidebar dark:bg-gray-900 text-sidebar-foreground dark:text-gray-100 shadow-xl">
-      <div className="p-4 border-b bg-gradient-to-r from-blue-500 to-purple-600 text-white flex items-center justify-between shadow-md">
-        <h2 className="text-2xl font-extrabold">Chats</h2>
+    <div className="flex flex-col h-full bg-white dark:bg-gray-900 text-foreground border-r border-gray-200 dark:border-gray-700">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="flex items-center gap-3">
+          <Avatar className="h-10 w-10 border-2 border-blue-500">
+            <AvatarImage src={currentUser.user_metadata.avatar_url || "/placeholder.svg"} alt={currentUser.user_metadata.first_name || "You"} />
+            <AvatarFallback className="bg-blue-500 text-white">
+              {currentUser.user_metadata.first_name?.charAt(0) || "Y"}
+            </AvatarFallback>
+          </Avatar>
+          <span className="font-semibold text-lg text-gray-800 dark:text-gray-100">
+            {currentUser.user_metadata.first_name || "You"}
+          </span>
+        </div>
         <div className="flex items-center gap-2">
           <Dialog open={isNewChatDialogOpen} onOpenChange={setIsNewChatDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="default" size="sm" className="bg-white text-blue-600 hover:bg-blue-100 transition-colors duration-200 flex items-center gap-1 px-3 py-2 rounded-full shadow-md hover:shadow-lg">
-                <PlusCircle className="h-4 w-4" />
-                <span>New Chat</span>
+              <Button variant="ghost" size="icon" className="text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400">
+                <PlusCircle className="h-5 w-5" />
+                <span className="sr-only">New Chat</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px] bg-card dark:bg-gray-800 text-card-foreground dark:text-gray-100">
@@ -367,20 +384,35 @@ export const ChatSidebar = ({
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          <Button variant="ghost" size="icon" onClick={handleEditProfile} className="text-white hover:bg-white/20 transition-colors">
+          <Button variant="ghost" size="icon" onClick={handleEditProfile} className="text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400">
             <UserIcon className="h-5 w-5" />
             <span className="sr-only">Edit Profile</span>
           </Button>
-          <Button variant="ghost" size="icon" onClick={handleLogout} className="text-white hover:bg-white/20 hover:text-red-300 transition-colors">
+          <Button variant="ghost" size="icon" onClick={handleLogout} className="text-gray-600 hover:text-red-500 dark:text-gray-300 dark:hover:text-red-400">
             <LogOut className="h-5 w-5" />
             <span className="sr-only">Logout</span>
           </Button>
         </div>
       </div>
-      <ScrollArea className="flex-1 p-2 bg-sidebar dark:bg-gray-900">
-        <div className="space-y-1">
+
+      {/* Search Conversations */}
+      <div className="p-3 border-b border-gray-100 dark:border-gray-700">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 dark:text-gray-400" />
+          <Input
+            placeholder="Search chats..."
+            className="pl-10 w-full rounded-full bg-gray-100 dark:bg-gray-800 border-none focus:ring-blue-500 focus:ring-1"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Conversation List */}
+      <ScrollArea className="flex-1">
+        <div className="space-y-0"> {/* Removed space-y-1 to make items closer */}
           {conversations.length === 0 ? (
-            <p className="p-3 text-muted-foreground dark:text-gray-400 text-center">No conversations yet. Click '+' to start one!</p>
+            <p className="p-4 text-muted-foreground dark:text-gray-400 text-center">No conversations yet. Click '+' to start one!</p>
           ) : (
             conversations.map((conv) => (
               <ConversationItem

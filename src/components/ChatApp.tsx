@@ -13,6 +13,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { useIsMobile } from "@/hooks/use-mobile"; // Re-import useIsMobile
 import { MessageCircle } from "lucide-react"; // Import MessageCircle for the welcome message
 
 // Define types for Supabase data
@@ -41,6 +42,7 @@ export const ChatApp = () => {
   const [conversations, setConversations] = useState<SupabaseConversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  const isMobile = useIsMobile(); // Use the hook
 
   useEffect(() => {
     if (!user || isAuthLoading) {
@@ -196,6 +198,10 @@ export const ChatApp = () => {
     });
   };
 
+  const handleCloseChat = () => {
+    setSelectedConversationId(null);
+  };
+
   if (isAuthLoading || isLoadingConversations) {
     return (
       <div className="flex items-center justify-center h-screen w-screen bg-background">
@@ -227,54 +233,61 @@ export const ChatApp = () => {
           animation: gradient-xy 15s ease infinite;
         }
       `}</style>
-      <ResizablePanelGroup
-        direction="horizontal"
-        className="flex h-screen bg-background text-foreground"
-      >
-        <ResizablePanel
-          defaultSize={25} // Default 25% for sidebar on all devices
-          minSize={15} // Minimum 15% for sidebar on all devices
-          maxSize={50} // Maximum 50% for sidebar on all devices
-          collapsible={true} // Allow collapsing by double-clicking handle
-        >
-          <ChatSidebar
-            conversations={conversations}
-            selectedConversationId={selectedConversationId}
-            onSelectConversation={setSelectedConversationId}
-            currentUser={user}
-          />
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel
-          defaultSize={75} // Default 75% for chat area on all devices
-          minSize={30} // Minimum 30% for chat area on all devices
-          maxSize={85} // Maximum 85% for chat area on all devices
-          collapsible={true} // Allow collapsing by double-clicking handle
-        >
-          {selectedConversation ? (
-            <ChatMessageArea
-              conversation={selectedConversation}
-              onSendMessage={handleSendMessage}
-              currentUser={user}
-              onConversationDeleted={handleConversationDeleted}
-              // onCloseChat prop removed as it's no longer needed with consistent resizable panels
-            />
-          ) : (
-            <div className="flex-1 flex items-center justify-center p-4">
-              <div className="w-full max-w-md text-center bg-card/90 backdrop-blur-sm border-2 border-primary/20 shadow-xl animate-fade-in">
-                <div className="p-6">
-                  <MessageCircle className="h-16 w-16 mx-auto mb-4 text-primary animate-bounce-slow" />
-                  <h3 className="text-3xl font-extrabold text-primary">Welcome to Snipchat!</h3>
-                  <p className="text-lg text-muted-foreground mt-2">
-                    Start a new adventure! Select a conversation from the sidebar or click the '+' button to create a new one.
-                  </p>
+      <div className="flex items-center justify-center min-h-screen p-4"> {/* Outer container for app window effect */}
+        <div className="w-full max-w-screen-xl h-[90vh] rounded-xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"> {/* Inner app window */}
+          <ResizablePanelGroup
+            direction="horizontal"
+            className="h-full"
+          >
+            <ResizablePanel
+              defaultSize={isMobile && selectedConversationId ? 0 : 30} // On mobile, if chat selected, sidebar is 0. Else 100. Desktop is 30.
+              minSize={isMobile ? 0 : 20} // Allow full collapse on mobile, 20% on desktop
+              maxSize={isMobile ? 100 : 40} // Allow full expansion on mobile, 40% on desktop
+              collapsible={isMobile}
+              collapsedSize={isMobile ? 0 : 20} // Collapsed size for mobile is 0, for desktop is 20
+              onCollapse={() => isMobile && setSelectedConversationId(null)}
+              onExpand={() => isMobile && setSelectedConversationId(null)}
+            >
+              <ChatSidebar
+                conversations={conversations}
+                selectedConversationId={selectedConversationId}
+                onSelectConversation={setSelectedConversationId}
+                currentUser={user}
+              />
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel
+              defaultSize={isMobile && selectedConversationId ? 70 : 0} // On mobile, if chat selected, chat area is 100. Else 0. Desktop is 70.
+              minSize={isMobile ? 0 : 30} // Allow full collapse on mobile, 30% on desktop
+              maxSize={isMobile ? 100 : 80} // Allow full expansion on mobile, 80% on desktop
+              collapsible={isMobile}
+              collapsedSize={isMobile ? 0 : 30} // Collapsed size for mobile is 0, for desktop is 30
+              onCollapse={() => isMobile && setSelectedConversationId(null)}
+              onExpand={() => { /* No specific action needed on expand, state should already be correct */ }}
+            >
+              {selectedConversation ? (
+                <ChatMessageArea
+                  conversation={selectedConversation}
+                  onSendMessage={handleSendMessage}
+                  currentUser={user}
+                  onConversationDeleted={handleConversationDeleted}
+                  onCloseChat={isMobile ? handleCloseChat : undefined} // Pass onCloseChat for mobile back button
+                />
+              ) : (
+                <div className="flex-1 flex items-center justify-center p-4 h-full bg-gray-50 dark:bg-gray-800">
+                  <div className="w-full max-w-md text-center bg-card/90 backdrop-blur-sm border-2 border-primary/20 shadow-xl rounded-lg animate-fade-in p-8">
+                    <MessageCircle className="h-20 w-20 mx-auto mb-6 text-primary animate-bounce-slow" />
+                    <h3 className="text-4xl font-extrabold text-primary mb-3">Welcome to Snipchat!</h3>
+                    <p className="text-lg text-muted-foreground mt-2">
+                      Start a new adventure! Select a conversation from the sidebar or click the '+' button to create a new one.
+                    </p>
+                  </div>
                 </div>
-                <div className="p-6 pt-0"></div>
-              </div>
-            </div>
-          )}
-        </ResizablePanel>
-      </ResizablePanelGroup>
+              )}
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </div>
+      </div>
     </div>
   );
 };

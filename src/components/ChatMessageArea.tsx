@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { Send, Trash2, PhoneCall } from "lucide-react"; // Removed ArrowLeft
+import { Send, Trash2, PhoneCall, ArrowLeft } from "lucide-react"; // Re-added ArrowLeft
 import { SupabaseConversation } from "./ChatApp";
 import {
   AlertDialog,
@@ -23,6 +23,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useCall } from "./CallProvider"; // Import useCall
+import { format } from 'date-fns'; // Import date-fns for message timestamps
 
 interface Profile {
   id: string;
@@ -45,7 +46,7 @@ interface ChatMessageAreaProps {
   onSendMessage: (text: string) => void;
   currentUser: User;
   onConversationDeleted: (conversationId: string) => void;
-  // onCloseChat?: () => void; // Removed optional prop
+  onCloseChat?: () => void; // Re-added optional prop for mobile back button
 }
 
 export const ChatMessageArea = ({
@@ -53,7 +54,7 @@ export const ChatMessageArea = ({
   onSendMessage,
   currentUser,
   onConversationDeleted,
-  // onCloseChat, // Removed from destructuring
+  onCloseChat, // Re-added to destructuring
 }: ChatMessageAreaProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessageContent, setNewMessageContent] = useState("");
@@ -239,26 +240,32 @@ export const ChatMessageArea = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-800 text-foreground shadow-lg rounded-lg overflow-hidden">
-      <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md">
+    <div className="flex flex-col h-full bg-white dark:bg-gray-800 text-foreground">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="flex items-center gap-3">
-          {/* Removed onCloseChat button */}
-          <Avatar className="h-10 w-10 border-2 border-white">
+          {onCloseChat && ( // Show back button only if onCloseChat is provided (i.e., on mobile)
+            <Button variant="ghost" size="icon" onClick={onCloseChat} className="text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400">
+              <ArrowLeft className="h-5 w-5" />
+              <span className="sr-only">Back to chats</span>
+            </Button>
+          )}
+          <Avatar className="h-10 w-10 border-2 border-gray-200 dark:border-gray-600">
             <AvatarImage src={getConversationAvatar()} alt={getConversationTitle()} />
-            <AvatarFallback className="bg-white text-blue-600 font-bold">
+            <AvatarFallback className="bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100">
               {getConversationTitle().charAt(0)}
             </AvatarFallback>
           </Avatar>
-          <h3 className="text-xl font-bold">{getConversationTitle()}</h3>
+          <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">{getConversationTitle()}</h3>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={handleStartCall} disabled={!!activeCall}>
+          <Button variant="ghost" size="icon" className="text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400" onClick={handleStartCall} disabled={!!activeCall}>
             <PhoneCall className="h-5 w-5" />
             <span className="sr-only">Start Call</span>
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-red-300">
+              <Button variant="ghost" size="icon" className="text-gray-600 hover:text-red-500 dark:text-gray-300 dark:hover:text-red-400">
                 <Trash2 className="h-5 w-5" />
               </Button>
             </AlertDialogTrigger>
@@ -281,6 +288,7 @@ export const ChatMessageArea = ({
         </div>
       </div>
 
+      {/* Message Area */}
       <ScrollArea className="flex-1 p-4 bg-gray-50 dark:bg-gray-900">
         <div className="space-y-4">
           {messages.length === 0 ? (
@@ -290,16 +298,17 @@ export const ChatMessageArea = ({
               const senderProfile = message.profiles || conversation.conversation_participants.find(p => p.user_id === message.sender_id)?.profiles;
               const senderFirstName = senderProfile?.first_name || "Unknown";
               const senderAvatar = senderProfile?.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${senderFirstName}`;
+              const isCurrentUser = message.sender_id === currentUser.id;
 
               return (
                 <div
                   key={message.id}
                   className={cn(
-                    "flex items-end gap-3",
-                    message.sender_id === currentUser.id ? "justify-end" : "justify-start"
+                    "flex items-end gap-2",
+                    isCurrentUser ? "justify-end" : "justify-start"
                   )}
                 >
-                  {message.sender_id !== currentUser.id && (
+                  {!isCurrentUser && ( // Show avatar for other users' messages
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={senderAvatar} alt={senderFirstName} />
                       <AvatarFallback>{senderFirstName.charAt(0) || "U"}</AvatarFallback>
@@ -307,26 +316,17 @@ export const ChatMessageArea = ({
                   )}
                   <div
                     className={cn(
-                      "max-w-[70%] p-3 rounded-2xl shadow-md relative",
-                      message.sender_id === currentUser.id
-                        ? "bg-blue-600 text-white rounded-br-none"
-                        : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100 rounded-bl-none"
+                      "max-w-[75%] p-3 rounded-xl relative",
+                      isCurrentUser
+                        ? "bg-blue-500 text-white rounded-br-none" // Current user's message
+                        : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100 rounded-bl-none" // Other user's message
                     )}
                   >
-                    <p className="text-sm font-medium mb-1">
-                      {message.sender_id === currentUser.id ? "You" : senderFirstName}
-                    </p>
                     <p className="text-base">{message.content}</p>
                     <p className="text-xs text-right mt-1 opacity-80">
-                      {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {format(new Date(message.created_at), 'HH:mm')}
                     </p>
                   </div>
-                  {message.sender_id === currentUser.id && (
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={senderAvatar} alt={senderFirstName} />
-                      <AvatarFallback>{senderFirstName.charAt(0) || "Y"}</AvatarFallback>
-                    </Avatar>
-                  )}
                 </div>
               );
             }))}
@@ -334,7 +334,8 @@ export const ChatMessageArea = ({
         </div>
       </ScrollArea>
 
-      <div className="p-4 border-t flex items-center gap-2 bg-white dark:bg-gray-800 shadow-inner">
+      {/* Message Input */}
+      <div className="p-4 border-t flex items-center gap-2 bg-gray-100 dark:bg-gray-800 shadow-inner">
         <Input
           placeholder="Type your message..."
           value={newMessageContent}
@@ -344,9 +345,9 @@ export const ChatMessageArea = ({
               handleSend();
             }
           }}
-          className="flex-1 border-primary/30 focus:border-primary focus:ring-primary"
+          className="flex-1 rounded-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500"
         />
-        <Button onClick={handleSend} disabled={!newMessageContent.trim()} className="bg-blue-600 hover:bg-blue-700 text-white">
+        <Button onClick={handleSend} disabled={!newMessageContent.trim()} className="rounded-full h-10 w-10 p-0 bg-blue-600 hover:bg-blue-700 text-white">
           <Send className="h-5 w-5" />
           <span className="sr-only">Send message</span>
         </Button>
