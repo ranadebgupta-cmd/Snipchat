@@ -61,6 +61,14 @@ export const ChatMessageArea = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { startCall, activeCall } = useCall();
 
+  // Use a ref to store conversation participants to avoid re-subscribing the channel
+  const participantsRef = useRef(conversation.conversation_participants);
+
+  // Update the ref whenever conversation.conversation_participants changes
+  useEffect(() => {
+    participantsRef.current = conversation.conversation_participants;
+  }, [conversation.conversation_participants]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -130,8 +138,8 @@ export const ChatMessageArea = ({
 
           const newMessageData = payload.new as Message; 
 
-          // Find the sender's profile from the current conversation's participants
-          const senderProfile = conversation.conversation_participants.find(
+          // Use the ref to get the latest participants without re-running the effect
+          const senderProfile = participantsRef.current.find(
             (p) => p.user_id === newMessageData.sender_id
           )?.profiles;
 
@@ -153,7 +161,7 @@ export const ChatMessageArea = ({
       console.log(`[ChatMessageArea] Unsubscribing from conversation:${conversation.id}`);
       supabase.removeChannel(channel);
     };
-  }, [conversation.id, conversation.conversation_participants]); // Added conversation.conversation_participants to dependencies
+  }, [conversation.id]); // Only depend on conversation.id
 
   useEffect(() => {
     scrollToBottom();
