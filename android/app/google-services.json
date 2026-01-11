@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:829754988640:android:884a95572ef03481934b05",
+        "mobilesdk_app_id": "1:829754988640:android:23a17e41787903c3934b05",
         "android_client_info": {
-          "package_name": "com.snipchat.com"
+          "package_name": "com.example.snipchat"
         }
       },
       "oauth_client": [],

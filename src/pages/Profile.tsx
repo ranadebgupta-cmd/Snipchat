@@ -81,6 +81,7 @@ const Profile = () => {
       showError("Failed to update profile.");
     } else {
       showSuccess("Profile updated successfully!");
+      navigate('/'); // Redirect to chat conversation page
     }
     setIsSaving(false);
   };
