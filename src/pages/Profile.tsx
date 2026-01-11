@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { showSuccess, showError } from '@/utils/toast';
 import { Spinner } from '@/components/Spinner';
 import { useNavigate } from 'react-router-dom';
+import { Camera } from 'lucide-react'; // Import Camera icon
 
 interface ProfileData {
   id: string;
@@ -27,6 +28,7 @@ const Profile = () => {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false); // New state for upload loading
 
   useEffect(() => {
     if (!isAuthLoading && !user) {
@@ -79,9 +81,63 @@ const Profile = () => {
       showError("Failed to update profile.");
     } else {
       showSuccess("Profile updated successfully!");
-      // Optionally, refresh user session or profile state in ChatApp if needed
     }
     setIsSaving(false);
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user) {
+      showError("You must be logged in to upload an avatar.");
+      return;
+    }
+
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${user.id}.${fileExt}`; // Use user ID as filename to ensure uniqueness per user
+    const filePath = `${user.id}/${fileName}`; // Store in a folder named after the user ID
+
+    try {
+      // Upload file to Supabase storage
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true, // Overwrite existing file if it has the same name
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      if (publicUrlData) {
+        setAvatarUrl(publicUrlData.publicUrl);
+        // Update profile in the database
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ avatar_url: publicUrlData.publicUrl, updated_at: new Date().toISOString() })
+          .eq('id', user.id);
+
+        if (updateError) {
+          throw updateError;
+        }
+        showSuccess("Avatar uploaded and profile updated!");
+      } else {
+        throw new Error("Failed to get public URL for the uploaded avatar.");
+      }
+    } catch (error: any) {
+      console.error("Error uploading avatar:", error);
+      showError(`Failed to upload avatar: ${error.message || "Unknown error"}`);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   if (isAuthLoading || isLoading) {
@@ -106,19 +162,22 @@ const Profile = () => {
       <h1 className="text-3xl font-bold text-center mb-6">Edit Profile</h1>
       <form onSubmit={handleSave} className="space-y-6">
         <div className="flex flex-col items-center space-y-4">
-          <Avatar className="h-24 w-24">
-            <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={`${firstName} ${lastName}`} />
-            <AvatarFallback className="text-4xl">{firstName.charAt(0) || lastName.charAt(0) || 'U'}</AvatarFallback>
-          </Avatar>
-          <div className="w-full">
-            <Label htmlFor="avatarUrl" className="sr-only">Avatar URL</Label>
+          <div className="relative group">
+            <Avatar className="h-24 w-24">
+              <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={`${firstName} ${lastName}`} />
+              <AvatarFallback className="text-4xl">{firstName.charAt(0) || lastName.charAt(0) || 'U'}</AvatarFallback>
+            </Avatar>
+            <Label htmlFor="avatar-upload" className="absolute inset-0 flex items-center justify-center bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+              {isUploading ? <Spinner size="sm" className="text-white" /> : <Camera className="h-8 w-8" />}
+              <span className="sr-only">Upload Avatar</span>
+            </Label>
             <Input
-              id="avatarUrl"
-              type="url"
-              placeholder="Avatar URL"
-              value={avatarUrl}
-              onChange={(e) => setAvatarUrl(e.target.value)}
-              className="text-center"
+              id="avatar-upload"
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarUpload}
+              className="hidden"
+              disabled={isUploading}
             />
           </div>
         </div>
@@ -145,7 +204,7 @@ const Profile = () => {
           />
         </div>
 
-        <Button type="submit" className="w-full" disabled={isSaving}>
+        <Button type="submit" className="w-full" disabled={isSaving || isUploading}>
           {isSaving ? <Spinner size="sm" className="mr-2" /> : null}
           {isSaving ? 'Saving...' : 'Save Profile'}
         </Button>
