@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react"; // Import useCallback
+import React, { useState, useEffect, useCallback } from "react";
 import { ChatSidebar } from "./ChatSidebar";
 import { ChatMessageArea } from "./ChatMessageArea";
 import { useAuth } from "@/integrations/supabase/auth";
@@ -46,7 +46,9 @@ export const ChatApp = () => {
 
   // Memoize fetchConversations to ensure its reference is stable
   const fetchConversations = useCallback(async () => {
-    if (!user) { // Ensure user is available before fetching
+    console.log("[ChatApp] fetchConversations started. User:", user?.id);
+    if (!user) {
+      console.log("[ChatApp] fetchConversations skipped: No user.");
       setIsLoadingConversations(false);
       return;
     }
@@ -133,15 +135,20 @@ export const ChatApp = () => {
 
       // Only update selectedConversationId if it's null or the current one no longer exists
       if (processedConversations.length > 0 && (!selectedConversationId || !processedConversations.some(c => c.id === selectedConversationId))) {
+        console.log("[ChatApp] Setting selectedConversationId to first conversation:", processedConversations[0].id);
         setSelectedConversationId(processedConversations[0].id);
       } else if (processedConversations.length === 0) {
+        console.log("[ChatApp] No conversations, setting selectedConversationId to null.");
         setSelectedConversationId(null);
       }
     setIsLoadingConversations(false);
+    console.log("[ChatApp] fetchConversations finished. Conversations count:", processedConversations.length);
   }, [user, selectedConversationId]); // Dependencies for useCallback
 
   useEffect(() => {
+    console.log("[ChatApp] Main useEffect mounted. User:", user?.id, "isAuthLoading:", isAuthLoading);
     if (!user || isAuthLoading) {
+      console.log("[ChatApp] Main useEffect skipped fetch: No user or auth still loading.");
       setIsLoadingConversations(false);
       return;
     }
@@ -155,6 +162,7 @@ export const ChatApp = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'conversations' },
         () => {
+          console.log('[ChatApp] Realtime: Conversation change detected, re-fetching conversations.');
           fetchConversations(); // Re-fetch on conversation changes
         }
       )
@@ -162,12 +170,14 @@ export const ChatApp = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'messages' },
         () => {
+          console.log('[ChatApp] Realtime: Message change detected, re-fetching conversations.');
           fetchConversations(); // Re-fetch on message changes (to update latest message snippet)
         }
       )
       .subscribe();
 
     return () => {
+      console.log("[ChatApp] Main useEffect unmounted, unsubscribing from channel.");
       supabase.removeChannel(channel);
     };
   }, [user, isAuthLoading, fetchConversations]); // Dependencies for useEffect
@@ -207,6 +217,8 @@ export const ChatApp = () => {
     setSelectedConversationId(null);
   };
 
+  console.log("[ChatApp] Render. isAuthLoading:", isAuthLoading, "isLoadingConversations:", isLoadingConversations, "User:", user?.id, "Selected Conv ID:", selectedConversationId);
+
   if (isAuthLoading || isLoadingConversations) {
     return (
       <div className="flex items-center justify-center h-screen w-screen bg-background">
@@ -238,18 +250,18 @@ export const ChatApp = () => {
           animation: gradient-xy 15s ease infinite;
         }
       `}</style>
-      <div className="flex items-center justify-center min-h-screen p-4"> {/* Outer container for app window effect */}
-        <div className="w-full max-w-screen-xl h-[90vh] rounded-xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"> {/* Inner app window */}
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <div className="w-full max-w-screen-xl h-[90vh] rounded-xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
           <ResizablePanelGroup
             direction="horizontal"
             className="h-full"
           >
             <ResizablePanel
-              defaultSize={isMobile && selectedConversationId ? 0 : 30} // On mobile, if chat selected, sidebar is 0. Else 100. Desktop is 30.
-              minSize={isMobile ? 0 : 20} // Allow full collapse on mobile, 20% on desktop
-              maxSize={isMobile ? 100 : 40} // Allow full expansion on mobile, 40% on desktop
+              defaultSize={isMobile && selectedConversationId ? 0 : 30}
+              minSize={isMobile ? 0 : 20}
+              maxSize={isMobile ? 100 : 40}
               collapsible={isMobile}
-              collapsedSize={isMobile ? 0 : 20} // Collapsed size for mobile is 0, for desktop is 20
+              collapsedSize={isMobile ? 0 : 20}
               onCollapse={() => isMobile && setSelectedConversationId(null)}
               onExpand={() => isMobile && setSelectedConversationId(null)}
             >
@@ -262,11 +274,11 @@ export const ChatApp = () => {
             </ResizablePanel>
             <ResizableHandle withHandle />
             <ResizablePanel
-              defaultSize={isMobile && selectedConversationId ? 70 : 0} // On mobile, if chat selected, chat area is 100. Else 0. Desktop is 70.
-              minSize={isMobile ? 0 : 30} // Allow full collapse on mobile, 30% on desktop
-              maxSize={isMobile ? 100 : 80} // Allow full expansion on mobile, 80% on desktop
+              defaultSize={isMobile && selectedConversationId ? 70 : 0}
+              minSize={isMobile ? 0 : 30}
+              maxSize={isMobile ? 100 : 80}
               collapsible={isMobile}
-              collapsedSize={isMobile ? 0 : 30} // Collapsed size for mobile is 0, for desktop is 30
+              collapsedSize={isMobile ? 0 : 30}
               onCollapse={() => isMobile && setSelectedConversationId(null)}
               onExpand={() => { /* No specific action needed on expand, state should already be correct */ }}
             >
@@ -276,7 +288,7 @@ export const ChatApp = () => {
                   onSendMessage={handleSendMessage}
                   currentUser={user}
                   onConversationDeleted={handleConversationDeleted}
-                  onCloseChat={isMobile ? handleCloseChat : undefined} // Pass onCloseChat for mobile back button
+                  onCloseChat={isMobile ? handleCloseChat : undefined}
                 />
               ) : (
                 <div className="flex-1 flex items-center justify-center p-4 h-full bg-gray-50 dark:bg-gray-800">
