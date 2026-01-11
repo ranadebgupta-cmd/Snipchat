@@ -3,16 +3,17 @@
 import React, { useState, useEffect } from "react";
 import { ChatSidebar } from "./ChatSidebar";
 import { ChatMessageArea } from "./ChatMessageArea";
-import { useAuth } from "@/integrations/supabase/auth"; // Corrected import path
+import { useAuth } from "@/integrations/supabase/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { showError } from "@/utils/toast";
 import { User } from "@supabase/supabase-js";
-import { Spinner } from "./Spinner"; // Corrected import path
+import { Spinner } from "./Spinner";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { WelcomeBanner } from "./WelcomeBanner"; // Import the new WelcomeBanner
 
 // Define types for Supabase data
 interface Profile {
@@ -218,33 +219,36 @@ export const ChatApp = () => {
   }
 
   return (
-    <ResizablePanelGroup
-      direction="horizontal"
-      className="flex h-screen bg-background text-foreground"
-    >
-      <ResizablePanel defaultSize={25} minSize={15}>
-        <ChatSidebar
-          conversations={conversations}
-          selectedConversationId={selectedConversationId}
-          onSelectConversation={setSelectedConversationId}
-          currentUser={user}
-        />
-      </ResizablePanel>
-      <ResizableHandle withHandle />
-      <ResizablePanel defaultSize={75} minSize={30}>
-        {selectedConversation ? (
-          <ChatMessageArea
-            conversation={selectedConversation}
-            onSendMessage={handleSendMessage}
+    <div className="flex flex-col h-screen bg-background text-foreground">
+      <WelcomeBanner user={user} className="m-4" /> {/* Add the WelcomeBanner here */}
+      <ResizablePanelGroup
+        direction="horizontal"
+        className="flex flex-1" // Use flex-1 to make it take remaining height
+      >
+        <ResizablePanel defaultSize={25} minSize={15}>
+          <ChatSidebar
+            conversations={conversations}
+            selectedConversationId={selectedConversationId}
+            onSelectConversation={setSelectedConversationId}
             currentUser={user}
-            onConversationDeleted={handleConversationDeleted}
           />
-        ) : (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            Select a conversation to start chatting or start a new one.
-          </div>
-        )}
-      </ResizablePanel>
-    </ResizablePanelGroup>
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel defaultSize={75} minSize={30}>
+          {selectedConversation ? (
+            <ChatMessageArea
+              conversation={selectedConversation}
+              onSendMessage={handleSendMessage}
+              currentUser={user}
+              onConversationDeleted={handleConversationDeleted}
+            />
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-muted-foreground">
+              Select a conversation to start chatting or start a new one.
+            </div>
+          )}
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    </div>
   );
 };
