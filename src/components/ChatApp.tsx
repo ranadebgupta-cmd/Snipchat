@@ -14,6 +14,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { MessageCircle } from "lucide-react"; // Import MessageCircle for the welcome message
 
 // Define types for Supabase data
 interface Profile {
@@ -232,62 +233,60 @@ export const ChatApp = () => {
           animation: gradient-xy 15s ease infinite;
         }
       `}</style>
-      {isMobile ? (
-        selectedConversationId ? (
-          <ChatMessageArea
-            conversation={selectedConversation!}
-            onSendMessage={handleSendMessage}
-            currentUser={user}
-            onConversationDeleted={handleConversationDeleted}
-            onCloseChat={handleCloseChat}
-          />
-        ) : (
+      <ResizablePanelGroup
+        direction="horizontal"
+        className="flex h-screen bg-background text-foreground"
+      >
+        <ResizablePanel
+          defaultSize={isMobile && selectedConversationId ? 0 : 25} // On mobile, if chat selected, sidebar is 0. Else 100. Desktop is 25.
+          minSize={isMobile && selectedConversationId ? 0 : 15}
+          maxSize={isMobile && selectedConversationId ? 0 : 50}
+          collapsible={isMobile}
+          collapsedSize={0}
+          onCollapse={() => isMobile && setSelectedConversationId(null)}
+          onExpand={() => isMobile && setSelectedConversationId(null)}
+        >
           <ChatSidebar
             conversations={conversations}
             selectedConversationId={selectedConversationId}
             onSelectConversation={setSelectedConversationId}
             currentUser={user}
           />
-        )
-      ) : (
-        <ResizablePanelGroup
-          direction="horizontal"
-          className="flex h-screen bg-background text-foreground"
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel
+          defaultSize={isMobile && selectedConversationId ? 75 : 0} // On mobile, if chat selected, chat area is 100. Else 0. Desktop is 75.
+          minSize={isMobile && selectedConversationId ? 30 : 0}
+          maxSize={isMobile && selectedConversationId ? 85 : 0}
+          collapsible={isMobile}
+          collapsedSize={0}
+          onCollapse={() => isMobile && setSelectedConversationId(null)}
+          onExpand={() => isMobile && selectedConversationId && setSelectedConversationId(selectedConversationId)}
         >
-          <ResizablePanel defaultSize={25} minSize={15}>
-            <ChatSidebar
-              conversations={conversations}
-              selectedConversationId={selectedConversationId}
-              onSelectConversation={setSelectedConversationId}
+          {selectedConversation ? (
+            <ChatMessageArea
+              conversation={selectedConversation}
+              onSendMessage={handleSendMessage}
               currentUser={user}
+              onConversationDeleted={handleConversationDeleted}
+              onCloseChat={isMobile ? handleCloseChat : undefined}
             />
-          </ResizablePanel>
-          <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={75} minSize={30}>
-            {selectedConversation ? (
-              <ChatMessageArea
-                conversation={selectedConversation}
-                onSendMessage={handleSendMessage}
-                currentUser={user}
-                onConversationDeleted={handleConversationDeleted}
-              />
-            ) : (
-              <div className="flex-1 flex items-center justify-center p-4">
-                <div className="w-full max-w-md text-center bg-card/90 backdrop-blur-sm border-2 border-primary/20 shadow-xl animate-fade-in">
-                  <div className="p-6">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-message-circle h-16 w-16 mx-auto mb-4 text-primary animate-bounce-slow"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
-                    <h3 className="text-3xl font-extrabold text-primary">Welcome to Snipchat!</h3>
-                    <p className="text-lg text-muted-foreground mt-2">
-                      Start a new adventure! Select a conversation from the sidebar or click the '+' button to create a new one.
-                    </p>
-                  </div>
-                  <div className="p-6 pt-0"></div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center p-4">
+              <div className="w-full max-w-md text-center bg-card/90 backdrop-blur-sm border-2 border-primary/20 shadow-xl animate-fade-in">
+                <div className="p-6">
+                  <MessageCircle className="h-16 w-16 mx-auto mb-4 text-primary animate-bounce-slow" />
+                  <h3 className="text-3xl font-extrabold text-primary">Welcome to Snipchat!</h3>
+                  <p className="text-lg text-muted-foreground mt-2">
+                    Start a new adventure! Select a conversation from the sidebar or click the '+' button to create a new one.
+                  </p>
                 </div>
+                <div className="p-6 pt-0"></div>
               </div>
-            )}
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      )}
+            </div>
+          )}
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 };
