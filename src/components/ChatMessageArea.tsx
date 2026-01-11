@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useCall } from "./CallProvider";
 import { format } from 'date-fns';
+import { useDebouncedCallback } from 'use-debounce';
 
 interface Profile {
   id: string;
@@ -63,6 +64,8 @@ export const ChatMessageArea = ({
 }: ChatMessageAreaProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessageContent, setNewMessageContent] = useState("");
+  const [typingUsers, setTypingUsers] = useState<Profile[]>([]);
+  const typingTimeoutRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { startCall, activeCall } = useCall();
 
@@ -70,211 +73,189 @@ export const ChatMessageArea = ({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Effect for fetching messages
   useEffect(() => {
-    console.log("[ChatMessageArea] Component mounted or conversation changed. Conversation ID:", conversation.id);
-
     const fetchMessages = async () => {
-      console.log("[ChatMessageArea] Fetching initial messages for conversation ID:", conversation.id);
       const { data, error } = await supabase
         .from('messages')
-        .select(
-          `
-          id,
-          conversation_id,
-          sender_id,
-          content,
-          created_at,
-          profiles (
-            id,
-            first_name,
-            last_name,
-            avatar_url
-          )
-          `
-        )
+        .select('*, profiles(*)')
         .eq('conversation_id', conversation.id)
         .order('created_at', { ascending: true });
 
       if (error) {
         console.error("[ChatMessageArea] Error fetching messages:", error);
         showError("Failed to load messages.");
-        setMessages([]);
       } else {
-        const processedData: Message[] = (data || []).map((msg: any) => {
-          let profileData: Profile | null = null;
-          if (msg.profiles) {
-            if (Array.isArray(msg.profiles) && msg.profiles.length > 0) {
-              profileData = msg.profiles[0];
-            } else if (!Array.isArray(msg.profiles)) {
-              profileData = msg.profiles;
-            }
-          }
-          return {
-            ...msg,
-            profiles: profileData,
-          };
-        });
-        setMessages(processedData);
-        console.log("[ChatMessageArea] Initial messages loaded:", processedData);
+        setMessages(data as Message[]);
       }
     };
-
     fetchMessages();
+  }, [conversation.id]);
 
-    console.log(`[ChatMessageArea] Subscribing to real-time changes for conversation:${conversation.id}`);
-    const channel = supabase
-      .channel(`conversation:${conversation.id}`)
+  // Effect for real-time subscriptions (messages and typing)
+  useEffect(() => {
+    const messageChannel = supabase
+      .channel(`messages:${conversation.id}`)
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${conversation.id}`,
-        },
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversation.id}` },
         (payload) => {
-          console.log('[ChatMessageArea] Real-time new message payload received:', payload);
+          const rawNewMessage = payload.new as RawMessage;
+          const senderProfile = conversation.conversation_participants.find(p => p.user_id === rawNewMessage.sender_id)?.profiles || null;
+          setMessages(prev => [...prev, { ...rawNewMessage, profiles: senderProfile }]);
+        }
+      )
+      .subscribe();
 
-          const rawNewMessageData = payload.new as RawMessage; // Cast to RawMessage
+    const typingChannel = supabase
+      .channel(`typing:${conversation.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'typing_status', filter: `conversation_id=eq.${conversation.id}` },
+        (payload) => {
+          const { eventType, new: newRecord, old: oldRecord } = payload;
+          const record = (eventType === 'DELETE' ? oldRecord : newRecord) as { user_id: string };
 
-          // Find the sender's profile from the current conversation's participants
-          const senderProfile = conversation.conversation_participants.find(
-            (p) => p.user_id === rawNewMessageData.sender_id
-          )?.profiles;
+          if (record.user_id === currentUser.id) return;
 
-          console.log('[ChatMessageArea] New message sender ID:', rawNewMessageData.sender_id);
-          console.log('[ChatMessageArea] Conversation participants:', conversation.conversation_participants);
-          console.log('[ChatMessageArea] Found sender profile for real-time message:', senderProfile);
+          const userProfile = conversation.conversation_participants.find(p => p.user_id === record.user_id)?.profiles;
+          if (!userProfile) return;
 
-          const processedNewMessage: Message = { // Construct the full Message
-            ...rawNewMessageData,
-            profiles: senderProfile || null,
-          };
+          if (typingTimeoutRef.current.has(record.user_id)) {
+            clearTimeout(typingTimeoutRef.current.get(record.user_id)!);
+          }
 
-          setMessages((prevMessages) => {
-            const updatedMessages = [...prevMessages, processedNewMessage];
-            console.log('[ChatMessageArea] Messages state updated via real-time:', updatedMessages);
-            return updatedMessages;
-          });
+          if (eventType === 'DELETE') {
+            setTypingUsers(prev => prev.filter(u => u.id !== record.user_id));
+            typingTimeoutRef.current.delete(record.user_id);
+          } else {
+            setTypingUsers(prev => {
+              if (prev.some(u => u.id === userProfile.id)) return prev;
+              return [...prev, userProfile];
+            });
+
+            const timeoutId = setTimeout(() => {
+              setTypingUsers(prev => prev.filter(u => u.id !== record.user_id));
+              typingTimeoutRef.current.delete(record.user_id);
+            }, 3000);
+            typingTimeoutRef.current.set(record.user_id, timeoutId);
+          }
         }
       )
       .subscribe();
 
     return () => {
-      console.log(`[ChatMessageArea] Unsubscribing from conversation:${conversation.id}`);
-      supabase.removeChannel(channel);
+      supabase.removeChannel(messageChannel);
+      supabase.removeChannel(typingChannel);
+      typingTimeoutRef.current.forEach(timeout => clearTimeout(timeout));
     };
-  }, [conversation.id, conversation.conversation_participants]); // Added conversation.conversation_participants to dependencies
+  }, [conversation.id, conversation.conversation_participants, currentUser.id]);
 
-  useEffect(() => {
-    console.log("[ChatMessageArea] Messages state updated, scrolling to bottom.");
-    scrollToBottom();
-  }, [messages]);
+  useEffect(scrollToBottom, [messages]);
+
+  const updateTypingStatus = async () => {
+    await supabase.from('typing_status').upsert({
+      conversation_id: conversation.id,
+      user_id: currentUser.id,
+      last_typed_at: new Date().toISOString(),
+    });
+  };
+
+  const removeTypingStatus = async () => {
+    await supabase.from('typing_status').delete().match({
+      conversation_id: conversation.id,
+      user_id: currentUser.id,
+    });
+  };
+
+  const debouncedUpdateTyping = useDebouncedCallback(updateTypingStatus, 500);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewMessageContent(e.target.value);
+    debouncedUpdateTyping();
+  };
 
   const handleSend = () => {
     if (newMessageContent.trim()) {
-      console.log("[ChatMessageArea] Sending message:", newMessageContent);
       onSendMessage(newMessageContent);
       setNewMessageContent("");
+      debouncedUpdateTyping.cancel();
+      removeTypingStatus();
     }
   };
 
   const handleDeleteConversation = async () => {
-    console.log("[ChatMessageArea] Attempting to delete conversation:", conversation.id);
-    const { error } = await supabase
-      .from('conversations')
-      .delete()
-      .eq('id', conversation.id);
-
+    const { error } = await supabase.from('conversations').delete().eq('id', conversation.id);
     if (error) {
-      console.error("[ChatMessageArea] Error deleting conversation:", error);
       showError("Failed to delete conversation.");
     } else {
-      showSuccess("Conversation deleted successfully!");
+      showSuccess("Conversation deleted.");
       onConversationDeleted(conversation.id);
-      console.log("[ChatMessageArea] Conversation deleted successfully.");
     }
   };
 
   const getConversationTitle = () => {
-    if (conversation.name) {
-      return conversation.name;
-    }
-    const otherParticipants = conversation.conversation_participants.filter(
-      (p) => p.user_id !== currentUser.id
-    );
-    if (otherParticipants.length > 0) {
-      const otherUser = otherParticipants[0].profiles;
-      return `${otherUser.first_name || ""} ${otherUser.last_name || ""}`.trim();
-    }
-    return "Unknown Chat";
+    if (conversation.name) return conversation.name;
+    const other = conversation.conversation_participants.find(p => p.user_id !== currentUser.id)?.profiles;
+    return `${other?.first_name || ""} ${other?.last_name || ""}`.trim() || "Chat";
   };
 
   const getConversationAvatar = () => {
-    if (conversation.name) {
-      // Placeholder for group chat avatar
-      return "https://api.dicebear.com/7.x/lorelei/svg?seed=GroupChat";
-    }
-    const otherParticipants = conversation.conversation_participants.filter(
-      (p) => p.user_id !== currentUser.id
-    );
-    if (otherParticipants.length > 0) {
-      return otherParticipants[0].profiles.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${otherParticipants[0].profiles.first_name || "User"}`;
-    }
-    return "/placeholder.svg";
+    if (conversation.name) return `https://api.dicebear.com/7.x/lorelei/svg?seed=${conversation.name}`;
+    const other = conversation.conversation_participants.find(p => p.user_id !== currentUser.id)?.profiles;
+    return other?.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${other?.first_name || "User"}`;
   };
 
   const handleStartCall = () => {
-    if (!currentUser) {
-      showError("You must be logged in to start a call.");
-      return;
-    }
     const participantIds = conversation.conversation_participants.map(p => p.user_id);
-    console.log("[ChatMessageArea] Starting call for conversation:", conversation.id, "with participants:", participantIds);
     startCall(conversation.id, participantIds);
+  };
+
+  const renderTypingIndicator = () => {
+    if (typingUsers.length === 0) return null;
+    const names = typingUsers.map(u => u.first_name).join(', ');
+    return (
+      <div className="px-4 pb-2 text-sm text-muted-foreground animate-pulse h-5">
+        {names} {typingUsers.length > 1 ? 'are' : 'is'} typing...
+      </div>
+    );
   };
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-800 text-foreground">
-      {/* Header */}
       <div className="flex items-center justify-between p-4 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="flex items-center gap-3">
-          {onCloseChat && ( // Show back button only if onCloseChat is provided (i.e., on mobile)
-            <Button variant="ghost" size="icon" onClick={onCloseChat} className="text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400">
+          {onCloseChat && (
+            <Button variant="ghost" size="icon" onClick={onCloseChat} className="mr-2">
               <ArrowLeft className="h-5 w-5" />
-              <span className="sr-only">Back to chats</span>
             </Button>
           )}
-          <Avatar className="h-10 w-10 border-2 border-gray-200 dark:border-gray-600">
-            <AvatarImage src={getConversationAvatar()} alt={getConversationTitle()} />
-            <AvatarFallback className="bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100">
-              {getConversationTitle().charAt(0)}
-            </AvatarFallback>
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={getConversationAvatar()} />
+            <AvatarFallback>{getConversationTitle().charAt(0)}</AvatarFallback>
           </Avatar>
-          <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">{getConversationTitle()}</h3>
+          <h3 className="text-xl font-semibold">{getConversationTitle()}</h3>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400" onClick={handleStartCall} disabled={!!activeCall}>
+          <Button variant="ghost" size="icon" onClick={handleStartCall} disabled={!!activeCall}>
             <PhoneCall className="h-5 w-5" />
-            <span className="sr-only">Start Call</span>
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-gray-600 hover:text-red-500 dark:text-gray-300 dark:hover:text-red-400">
+              <Button variant="ghost" size="icon" className="hover:text-red-500">
                 <Trash2 className="h-5 w-5" />
               </Button>
             </AlertDialogTrigger>
-            <AlertDialogContent className="bg-card dark:bg-gray-800 text-card-foreground dark:text-gray-100">
+            <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogTitle>Delete Conversation?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete this conversation
-                  for all participants and remove its data from our servers.
+                  This action cannot be undone and will delete the conversation for everyone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeleteConversation} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                <AlertDialogAction onClick={handleDeleteConversation} className="bg-destructive hover:bg-destructive/90">
                   Delete
                 </AlertDialogAction>
               </AlertDialogFooter>
@@ -283,68 +264,42 @@ export const ChatMessageArea = ({
         </div>
       </div>
 
-      {/* Message Area */}
       <ScrollArea className="flex-1 p-4 bg-gray-50 dark:bg-gray-900">
         <div className="space-y-4">
-          {messages.length === 0 ? (
-            <p className="text-center text-muted-foreground py-10 text-lg">No messages yet. Start the conversation!</p>
-          ) : (
-            messages.map((message) => {
-              const senderProfile = message.profiles || conversation.conversation_participants.find(p => p.user_id === message.sender_id)?.profiles;
-              const senderFirstName = senderProfile?.first_name || "Unknown";
-              const senderAvatar = senderProfile?.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${senderFirstName}`;
-              const isCurrentUser = message.sender_id === currentUser.id;
-
-              return (
-                <div
-                  key={message.id}
-                  className={cn(
-                    "flex items-end gap-2",
-                    isCurrentUser ? "justify-end" : "justify-start"
-                  )}
-                >
-                  {!isCurrentUser && ( // Show avatar for other users' messages
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={senderAvatar} alt={senderFirstName} />
-                      <AvatarFallback>{senderFirstName.charAt(0) || "U"}</AvatarFallback>
-                    </Avatar>
-                  )}
-                  <div
-                    className={cn(
-                      "max-w-[75%] p-3 rounded-xl relative",
-                      isCurrentUser
-                        ? "bg-blue-500 text-white rounded-br-none" // Current user's message
-                        : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100 rounded-bl-none" // Other user's message
-                    )}
-                  >
-                    <p className="text-base">{message.content}</p>
-                    <p className="text-xs text-right mt-1 opacity-80">
-                      {format(new Date(message.created_at), 'HH:mm')}
-                    </p>
-                  </div>
+          {messages.map(message => {
+            const sender = message.profiles || conversation.conversation_participants.find(p => p.user_id === message.sender_id)?.profiles;
+            const isCurrentUser = message.sender_id === currentUser.id;
+            return (
+              <div key={message.id} className={cn("flex items-end gap-2", isCurrentUser ? "justify-end" : "justify-start")}>
+                {!isCurrentUser && (
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={sender?.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${sender?.first_name || "U"}`} />
+                    <AvatarFallback>{sender?.first_name?.charAt(0) || "U"}</AvatarFallback>
+                  </Avatar>
+                )}
+                <div className={cn("max-w-[75%] p-3 rounded-xl", isCurrentUser ? "bg-blue-500 text-white rounded-br-none" : "bg-gray-200 dark:bg-gray-700 rounded-bl-none")}>
+                  <p className="text-base">{message.content}</p>
+                  <p className="text-xs text-right mt-1 opacity-80">{format(new Date(message.created_at), 'HH:mm')}</p>
                 </div>
-              );
-            }))}
+              </div>
+            );
+          })}
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
 
-      {/* Message Input */}
-      <div className="p-4 border-t flex items-center gap-2 bg-gray-100 dark:bg-gray-800 shadow-inner">
+      {renderTypingIndicator()}
+
+      <div className="p-4 border-t flex items-center gap-2 bg-gray-100 dark:bg-gray-800">
         <Input
           placeholder="Type your message..."
           value={newMessageContent}
-          onChange={(e) => setNewMessageContent(e.target.value)}
-          onKeyPress={(e) => {
-            if (e.key === "Enter") {
-              handleSend();
-            }
-          }}
-          className="flex-1 rounded-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500"
+          onChange={handleInputChange}
+          onKeyPress={(e) => e.key === "Enter" && handleSend()}
+          className="flex-1 rounded-full"
         />
-        <Button onClick={handleSend} disabled={!newMessageContent.trim()} className="rounded-full h-10 w-10 p-0 bg-blue-600 hover:bg-blue-700 text-white">
+        <Button onClick={handleSend} disabled={!newMessageContent.trim()} className="rounded-full h-10 w-10 p-0">
           <Send className="h-5 w-5" />
-          <span className="sr-only">Send message</span>
         </Button>
       </div>
     </div>
