@@ -46,8 +46,8 @@ interface Message {
   created_at: string;
 }
 
-// Define type for real-time updates from 'conversation_last_message' table
-interface ConversationLastMessage {
+// Define type for real-time updates from 'conversation_metadata' table
+interface ConversationMetadataPayload {
   conversation_id: string;
   latest_message_id: string | null;
   latest_message_sender_id: string | null;
@@ -104,13 +104,14 @@ export const ChatApp = () => {
     const rawConversations = rawConversationsData || [];
     const conversationIds = rawConversations.map((cp: any) => cp.conversations.id);
 
+    // Fetch latest message data from the new conversation_metadata table
     const { data: latestMessagesData, error: latestMessagesError } = await supabase
-      .from('conversation_last_message')
+      .from('conversation_metadata') // Changed to new table
       .select('*')
       .in('conversation_id', conversationIds);
 
     if (latestMessagesError) {
-      console.error("[ChatApp] Error fetching latest messages:", latestMessagesError);
+      console.error("[ChatApp] Error fetching latest messages from conversation_metadata:", latestMessagesError);
       showError(`Failed to load latest messages: ${latestMessagesError.message}`);
       // Continue with conversations even if latest messages fail
     }
@@ -179,7 +180,7 @@ export const ChatApp = () => {
 
     console.log("[ChatApp] Setting up real-time subscriptions for conversations and latest messages.");
     const channel = supabase
-      .channel('public:conversations_and_last_messages') // Use a more specific channel name
+      .channel('public:conversations_and_metadata') // Use a more specific channel name
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'conversations' },
@@ -190,34 +191,33 @@ export const ChatApp = () => {
       )
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'conversation_last_message' },
+        { event: 'INSERT', schema: 'public', table: 'conversation_metadata' }, // Listen to new table
         (payload) => {
-          console.log("[ChatApp] Real-time new conversation_last_message INSERT payload received:", payload);
-          const updatedLastMessage = payload.new as ConversationLastMessage; // Corrected type
+          console.log("[ChatApp] Real-time new conversation_metadata INSERT payload received:", payload);
+          const updatedMetadata = payload.new as ConversationMetadataPayload; // Corrected type
 
           setConversations(prevConversations => {
             console.log("[ChatApp] Previous conversations state for real-time update (INSERT):", prevConversations);
-            const existingConversationIndex = prevConversations.findIndex(conv => conv.id === updatedLastMessage.conversation_id); // Corrected access
+            const existingConversationIndex = prevConversations.findIndex(conv => conv.id === updatedMetadata.conversation_id);
 
             let updatedConversations;
             if (existingConversationIndex > -1) {
               // Update existing conversation
               updatedConversations = prevConversations.map((conv, index) => {
                 if (index === existingConversationIndex) {
-                  console.log(`[ChatApp] Updating existing conversation ${conv.id} with new latest message.`);
+                  console.log(`[ChatApp] Updating existing conversation ${conv.id} with new latest message metadata.`);
                   return {
                     ...conv,
-                    latest_message_content: updatedLastMessage.latest_message_content,
-                    latest_message_sender_id: updatedLastMessage.latest_message_sender_id,
-                    latest_message_created_at: updatedLastMessage.latest_message_created_at,
+                    latest_message_content: updatedMetadata.latest_message_content,
+                    latest_message_sender_id: updatedMetadata.latest_message_sender_id,
+                    latest_message_created_at: updatedMetadata.latest_message_created_at,
                   };
                 }
                 return conv;
               });
             } else {
-              // If it's a new conversation_last_message entry for a conversation not yet in state, re-fetch all.
-              // This can happen if a new conversation is created and a message is immediately sent.
-              console.log("[ChatApp] New conversation_last_message for unknown conversation, re-fetching all conversations.");
+              // If it's a new conversation_metadata entry for a conversation not yet in state, re-fetch all.
+              console.log("[ChatApp] New conversation_metadata for unknown conversation, re-fetching all conversations.");
               fetchAndSetConversations();
               return prevConversations; // Return previous state for now, fetchAndSetConversations will update
             }
@@ -229,28 +229,28 @@ export const ChatApp = () => {
               return dateB - dateA;
             });
 
-            console.log("[ChatApp] Conversations state updated for sidebar (real-time conversation_last_message INSERT):", updatedConversations);
+            console.log("[ChatApp] Conversations state updated for sidebar (real-time conversation_metadata INSERT):", updatedConversations);
             return updatedConversations;
           });
         }
       )
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'conversation_last_message' },
+        { event: 'UPDATE', schema: 'public', table: 'conversation_metadata' }, // Listen to new table
         (payload) => {
-          console.log("[ChatApp] Real-time new conversation_last_message UPDATE payload received:", payload);
-          const updatedLastMessage = payload.new as ConversationLastMessage; // Corrected type
+          console.log("[ChatApp] Real-time new conversation_metadata UPDATE payload received:", payload);
+          const updatedMetadata = payload.new as ConversationMetadataPayload; // Corrected type
 
           setConversations(prevConversations => {
             console.log("[ChatApp] Previous conversations state for real-time update (UPDATE):", prevConversations);
             const updatedConversations = prevConversations.map(conv => {
-              if (conv.id === updatedLastMessage.conversation_id) { // Corrected access
-                console.log(`[ChatApp] Updating conversation ${conv.id} with updated latest message.`);
+              if (conv.id === updatedMetadata.conversation_id) {
+                console.log(`[ChatApp] Updating conversation ${conv.id} with updated latest message metadata.`);
                 return {
                   ...conv,
-                  latest_message_content: updatedLastMessage.latest_message_content,
-                  latest_message_sender_id: updatedLastMessage.latest_message_sender_id,
-                  latest_message_created_at: updatedLastMessage.latest_message_created_at,
+                  latest_message_content: updatedMetadata.latest_message_content,
+                  latest_message_sender_id: updatedMetadata.latest_message_sender_id,
+                  latest_message_created_at: updatedMetadata.latest_message_created_at,
                 };
               }
               return conv;
@@ -263,7 +263,7 @@ export const ChatApp = () => {
               return dateB - dateA;
             });
 
-            console.log("[ChatApp] Conversations state updated for sidebar (real-time conversation_last_message UPDATE):", updatedConversations);
+            console.log("[ChatApp] Conversations state updated for sidebar (real-time conversation_metadata UPDATE):", updatedConversations);
             return updatedConversations;
           });
         }
