@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { Send, Trash2, PhoneCall, ArrowLeft } from "lucide-react"; // Re-added ArrowLeft
+import { Send, Trash2, PhoneCall, ArrowLeft } from "lucide-react";
 import { SupabaseConversation } from "./ChatApp";
 import {
   AlertDialog,
@@ -22,8 +22,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useCall } from "./CallProvider"; // Import useCall
-import { format } from 'date-fns'; // Import date-fns for message timestamps
+import { useCall } from "./CallProvider";
+import { format } from 'date-fns';
 
 interface Profile {
   id: string;
@@ -46,7 +46,7 @@ interface ChatMessageAreaProps {
   onSendMessage: (text: string) => void;
   currentUser: User;
   onConversationDeleted: (conversationId: string) => void;
-  onCloseChat?: () => void; // Re-added optional prop for mobile back button
+  onCloseChat?: () => void;
 }
 
 export const ChatMessageArea = ({
@@ -54,12 +54,12 @@ export const ChatMessageArea = ({
   onSendMessage,
   currentUser,
   onConversationDeleted,
-  onCloseChat, // Re-added to destructuring
+  onCloseChat,
 }: ChatMessageAreaProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessageContent, setNewMessageContent] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { startCall, activeCall } = useCall(); // Use startCall and activeCall from context
+  const { startCall, activeCall } = useCall();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -67,7 +67,7 @@ export const ChatMessageArea = ({
 
   useEffect(() => {
     const fetchMessages = async () => {
-      console.log("[ChatMessageArea] Attempting to fetch messages for conversation ID:", conversation.id);
+      // console.log("[ChatMessageArea] Attempting to fetch messages for conversation ID:", conversation.id); // Removed log
       const { data, error } = await supabase
         .from('messages')
         .select(
@@ -91,15 +91,15 @@ export const ChatMessageArea = ({
       if (error) {
         console.error("[ChatMessageArea] Error fetching messages:", error);
         showError("Failed to load messages.");
-        setMessages([]); // Clear messages on error
+        setMessages([]);
       } else {
-        console.log("[ChatMessageArea] Raw messages data received:", data);
+        // console.log("[ChatMessageArea] Raw messages data received:", data); // Removed log
         const processedData: Message[] = (data || []).map((msg: any) => {
           let profileData: Profile | null = null;
           if (msg.profiles) {
             if (Array.isArray(msg.profiles) && msg.profiles.length > 0) {
               profileData = msg.profiles[0];
-            } else if (!Array.isArray(msg.profiles)) { // It's an object
+            } else if (!Array.isArray(msg.profiles)) {
               profileData = msg.profiles;
             }
           }
@@ -109,7 +109,7 @@ export const ChatMessageArea = ({
           };
         });
         setMessages(processedData);
-        console.log("[ChatMessageArea] Processed messages set:", processedData);
+        // console.log("[ChatMessageArea] Processed messages set:", processedData); // Removed log
       }
     };
 
@@ -126,7 +126,7 @@ export const ChatMessageArea = ({
           filter: `conversation_id=eq.${conversation.id}`,
         },
         async (payload) => {
-          console.log('[ChatMessageArea] New message received!', payload);
+          // console.log('[ChatMessageArea] New message received!', payload); // Removed log
           // Fetch the full message with profile data
           const { data: newMessage, error } = await supabase
             .from('messages')

@@ -13,8 +13,8 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { useIsMobile } from "@/hooks/use-mobile"; // Re-import useIsMobile
-import { MessageCircle } from "lucide-react"; // Import MessageCircle for the welcome message
+import { useIsMobile } from "@/hooks/use-mobile";
+import { MessageCircle } from "lucide-react";
 
 // Define types for Supabase data
 interface Profile {
@@ -42,7 +42,7 @@ export const ChatApp = () => {
   const [conversations, setConversations] = useState<SupabaseConversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
-  const isMobile = useIsMobile(); // Use the hook
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!user || isAuthLoading) {
@@ -52,7 +52,6 @@ export const ChatApp = () => {
 
     const fetchConversations = async () => {
       setIsLoadingConversations(true);
-      console.log("[ChatApp] Attempting to fetch conversations for user:", user.id);
       
       const { data: rawConversationsData, error: conversationsError } = await supabase
         .from('conversation_participants')
@@ -136,7 +135,6 @@ export const ChatApp = () => {
         } else if (processedConversations.length === 0) {
           setSelectedConversationId(null);
         }
-        console.log("[ChatApp] Processed conversations:", processedConversations);
       setIsLoadingConversations(false);
     };
 
@@ -148,7 +146,7 @@ export const ChatApp = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'conversations' },
         (payload) => {
-          console.log('[ChatApp] Conversation change received!', payload);
+          // console.log('[ChatApp] Conversation change received!', payload); // Removed log
           fetchConversations();
         }
       )
@@ -156,7 +154,7 @@ export const ChatApp = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'messages' },
         (payload) => {
-          console.log('[ChatApp] Message change received!', payload);
+          // console.log('[ChatApp] Message change received!', payload); // Removed log
           fetchConversations();
         }
       )

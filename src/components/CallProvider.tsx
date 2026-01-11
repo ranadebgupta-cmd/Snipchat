@@ -54,7 +54,7 @@ export const CallProvider = ({ children, currentUser }: CallProviderProps) => {
         { event: 'INSERT', schema: 'public', table: 'calls' },
         (payload) => {
           const newCall = payload.new as Call;
-          console.log("[CallProvider] New call received:", newCall);
+          // console.log("[CallProvider] New call received:", newCall); // Removed log
           // Check if the current user is a participant in the conversation
           supabase.from('conversation_participants')
             .select('user_id')
@@ -65,7 +65,7 @@ export const CallProvider = ({ children, currentUser }: CallProviderProps) => {
               if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
                 console.error("[CallProvider] Error checking participant status:", error);
               } else if (data) {
-                console.log("[CallProvider] Incoming call for current user:", newCall);
+                // console.log("[CallProvider] Incoming call for current user:", newCall); // Removed log
                 setIncomingCall(newCall);
                 showSuccess(`Incoming call from ${newCall.caller_id}!`);
               }
@@ -77,7 +77,7 @@ export const CallProvider = ({ children, currentUser }: CallProviderProps) => {
         { event: 'UPDATE', schema: 'public', table: 'calls' },
         (payload) => {
           const updatedCall = payload.new as Call;
-          console.log("[CallProvider] Call updated:", updatedCall);
+          // console.log("[CallProvider] Call updated:", updatedCall); // Removed log
 
           if (activeCall?.id === updatedCall.id) {
             setActiveCall(updatedCall);
@@ -109,7 +109,7 @@ export const CallProvider = ({ children, currentUser }: CallProviderProps) => {
         { event: 'DELETE', schema: 'public', table: 'calls' },
         (payload) => {
           const deletedCall = payload.old as Call;
-          console.log("[CallProvider] Call deleted:", deletedCall);
+          // console.log("[CallProvider] Call deleted:", deletedCall); // Removed log
           if (activeCall?.id === deletedCall.id) {
             setActiveCall(null);
             showSuccess("Call ended by other party.");
