@@ -51,6 +51,7 @@ export const setupPushNotificationListeners = (userId: string) => {
     console.log('[PushNotifications] Push registration success, token:', token.value);
     // Access Capacitor globally
     const platform = Capacitor.getPlatform(); // Get actual platform
+    console.log(`[PushNotifications] Detected platform: ${platform}`); // Added log for debugging
     const deviceToken: DeviceToken = {
       user_id: userId,
       token: token.value,
