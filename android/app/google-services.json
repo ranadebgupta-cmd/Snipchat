@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "829754988640",
+    "project_id": "snipchat-6dc24",
+    "storage_bucket": "snipchat-6dc24.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:829754988640:android:884a95572ef03481934b05",
+        "android_client_info": {
+          "package_name": "com.snipchat.com"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDIaspyHGUFlZI_yafpHkDB62FHLtL547k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
