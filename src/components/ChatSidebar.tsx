@@ -107,25 +107,23 @@ const ConversationItem = ({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-200 ease-in-out",
+        "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors",
         isSelected
-          ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md scale-[1.02]"
-          : "hover:bg-muted/50 dark:hover:bg-gray-700 hover:scale-[1.01]"
+          ? "bg-primary text-primary-foreground"
+          : "hover:bg-muted/50"
       )}
       onClick={() => onSelect(conversation.id)}
     >
-      <Avatar className="h-10 w-10 border-2 border-white/50">
+      <Avatar className="h-10 w-10">
         <AvatarImage src={getDisplayAvatar()} alt={getDisplayName()} />
-        <AvatarFallback className={cn(isSelected ? "bg-white text-blue-600" : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100")}>
-          {getDisplayName().charAt(0)}
-        </AvatarFallback>
+        <AvatarFallback>{getDisplayName().charAt(0)}</AvatarFallback>
       </Avatar>
       <div className="flex-1 overflow-hidden">
         <p className="font-medium truncate">{getDisplayName()}</p>
         <p
           className={cn(
             "text-sm truncate",
-            isSelected ? "text-white/80" : "text-muted-foreground dark:text-gray-400"
+            isSelected ? "text-primary-foreground/80" : "text-muted-foreground"
           )}
         >
           {displayLatestMessage()}
@@ -277,22 +275,18 @@ export const ChatSidebar = ({
   };
 
   return (
-    <div className="flex flex-col h-full border-r bg-sidebar dark:bg-gray-900 text-sidebar-foreground dark:text-gray-100 shadow-xl">
-      <div className="p-4 border-b bg-gradient-to-r from-blue-500 to-purple-600 text-white flex items-center justify-between shadow-md">
-        <h2 className="text-2xl font-extrabold">Chats</h2>
+    <div className="flex flex-col h-full border-r bg-sidebar text-sidebar-foreground">
+      <div className="p-4 border-b flex items-center justify-between">
+        <h2 className="text-xl font-semibold">Chats</h2>
         <div className="flex items-center gap-2">
           <Dialog open={isNewChatDialogOpen} onOpenChange={setIsNewChatDialogOpen}>
             <DialogTrigger asChild>
-              <Button 
-                variant="default" 
-                size="sm" 
-                className="bg-white text-blue-600 hover:bg-blue-100 transition-colors duration-200 flex items-center gap-1 px-3 py-2 rounded-full shadow-md hover:shadow-lg"
-              >
-                <PlusCircle className="h-4 w-4" />
-                <span>New Chat</span>
+              <Button variant="ghost" size="icon" className="text-sidebar-foreground hover:text-sidebar-primary">
+                <PlusCircle className="h-5 w-5" />
+                <span className="sr-only">New Chat</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] bg-card dark:bg-gray-800 text-card-foreground dark:text-gray-100">
+            <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
                 <DialogTitle>Create New Chat</DialogTitle>
                 <DialogDescription>
@@ -308,7 +302,7 @@ export const ChatSidebar = ({
                     id="chatName"
                     value={newChatName}
                     onChange={(e) => setNewChatName(e.target.value)}
-                    className="col-span-3 bg-background dark:bg-gray-700 text-foreground dark:text-gray-100 border-border dark:border-gray-600"
+                    className="col-span-3"
                     placeholder="e.g., Team Project Discussion (for group chats)"
                   />
                 </div>
@@ -322,11 +316,11 @@ export const ChatSidebar = ({
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       placeholder="Search by name..."
-                      className="mb-2 bg-background dark:bg-gray-700 text-foreground dark:text-gray-100 border-border dark:border-gray-600"
+                      className="mb-2"
                     />
                     {isSearchingUsers && <Spinner size="sm" className="ml-2" />}
                     {searchResults.length > 0 && (
-                      <ScrollArea className="h-[100px] w-full rounded-md border p-2 mb-2 bg-background dark:bg-gray-700 border-border dark:border-gray-600">
+                      <ScrollArea className="h-[100px] w-full rounded-md border p-2 mb-2">
                         {searchResults.map((profile) => (
                           <div key={profile.id} className="flex items-center justify-between py-1">
                             <div className="flex items-center gap-2">
@@ -341,7 +335,6 @@ export const ChatSidebar = ({
                               size="sm"
                               onClick={() => handleAddParticipantToNewChat(profile)}
                               disabled={selectedNewChatParticipants.some(p => p.id === profile.id)}
-                              className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                             >
                               <UserPlus className="h-4 w-4 mr-1" /> Add
                             </Button>
@@ -352,12 +345,12 @@ export const ChatSidebar = ({
                     {selectedNewChatParticipants.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-2">
                         {selectedNewChatParticipants.map(p => (
-                          <Badge key={p.id} variant="secondary" className="flex items-center gap-1 bg-secondary dark:bg-gray-600 text-secondary-foreground dark:text-gray-100">
+                          <Badge key={p.id} variant="secondary" className="flex items-center gap-1">
                             {`${p.first_name || ""} ${p.last_name || ""}`.trim()}
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground dark:hover:text-gray-50"
+                              className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground"
                               onClick={() => handleRemoveParticipantFromNewChat(p.id)}
                             >
                               <X className="h-3 w-3" />
@@ -370,26 +363,26 @@ export const ChatSidebar = ({
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={handleCreateNewChat} disabled={isCreatingChat || selectedNewChatParticipants.length === 0} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                <Button onClick={handleCreateNewChat} disabled={isCreatingChat || selectedNewChatParticipants.length === 0}>
                   {isCreatingChat ? "Creating..." : "Create Chat"}
                 </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          <Button variant="ghost" size="icon" onClick={handleEditProfile} className="text-white hover:bg-white/20 transition-colors">
+          <Button variant="ghost" size="icon" onClick={handleEditProfile} className="text-sidebar-foreground hover:text-sidebar-primary">
             <UserIcon className="h-5 w-5" />
             <span className="sr-only">Edit Profile</span>
           </Button>
-          <Button variant="ghost" size="icon" onClick={handleLogout} className="text-white hover:bg-white/20 hover:text-red-300 transition-colors">
+          <Button variant="ghost" size="icon" onClick={handleLogout} className="text-sidebar-foreground hover:text-destructive">
             <LogOut className="h-5 w-5" />
             <span className="sr-only">Logout</span>
           </Button>
         </div>
       </div>
-      <ScrollArea className="flex-1 p-2 bg-sidebar dark:bg-gray-900">
+      <ScrollArea className="flex-1 p-2">
         <div className="space-y-1">
           {conversations.length === 0 ? (
-            <p className="p-3 text-muted-foreground dark:text-gray-400 text-center">No conversations yet. Click '+' to start one!</p>
+            <p className="p-3 text-muted-foreground text-center">No conversations yet.</p>
           ) : (
             conversations.map((conv) => (
               <ConversationItem

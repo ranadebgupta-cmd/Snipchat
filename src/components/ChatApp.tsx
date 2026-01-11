@@ -3,19 +3,16 @@
 import React, { useState, useEffect } from "react";
 import { ChatSidebar } from "./ChatSidebar";
 import { ChatMessageArea } from "./ChatMessageArea";
-import { useAuth } from "@/integrations/supabase/auth";
+import { useAuth } from "@/integrations/supabase/auth"; // Corrected import path
 import { supabase } from "@/integrations/supabase/client";
 import { showError } from "@/utils/toast";
 import { User } from "@supabase/supabase-js";
-import { Spinner } from "./Spinner";
+import { Spinner } from "./Spinner"; // Corrected import path
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageCircle } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-mobile"; // Import the useIsMobile hook
 
 // Define types for Supabase data
 interface Profile {
@@ -44,7 +41,6 @@ export const ChatApp = () => {
   const [conversations, setConversations] = useState<SupabaseConversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
-  const isMobile = useIsMobile(); // Use the hook
 
   useEffect(() => {
     if (!user || isAuthLoading) {
@@ -221,85 +217,11 @@ export const ChatApp = () => {
     return null;
   }
 
-  const commonBackgroundClasses = "h-screen bg-gradient-to-br from-blue-200 via-purple-200 to-pink-200 dark:from-gray-800 dark:via-indigo-900 dark:to-purple-950 text-foreground animate-gradient-xy";
-
-  if (isMobile) {
-    return (
-      <div className={commonBackgroundClasses}>
-        <style>{`
-          @keyframes gradient-xy {
-            0%, 100% {
-              background-position: 0% 0%;
-            }
-            50% {
-              background-position: 100% 100%;
-            }
-          }
-          .animate-gradient-xy {
-            background-size: 400% 400%;
-            animation: gradient-xy 15s ease infinite;
-          }
-        `}</style>
-        {selectedConversationId === null ? (
-          <ChatSidebar
-            conversations={conversations}
-            selectedConversationId={selectedConversationId}
-            onSelectConversation={setSelectedConversationId}
-            currentUser={user}
-          />
-        ) : (
-          selectedConversation ? (
-            <ChatMessageArea
-              conversation={selectedConversation}
-              onSendMessage={handleSendMessage}
-              currentUser={user}
-              onConversationDeleted={handleConversationDeleted}
-              onCloseChat={() => {
-                console.log("[ChatApp] Back button clicked on mobile.");
-                setSelectedConversationId(null);
-              }} // Added console log here
-            />
-          ) : (
-            <div className="flex-1 flex items-center justify-center p-4 h-full">
-              <Card className="w-full max-w-md text-center bg-card/90 backdrop-blur-sm border-2 border-primary/20 shadow-xl animate-fade-in">
-                <CardHeader>
-                  <MessageCircle className="h-16 w-16 mx-auto mb-4 text-primary animate-bounce-slow" />
-                  <CardTitle className="text-3xl font-extrabold text-primary">Welcome to Snipchat!</CardTitle>
-                  <CardDescription className="text-lg text-muted-foreground mt-2">
-                    Start a new adventure! Select a conversation from the sidebar or click the '+' button to create a new one.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {/* Additional content can go here if needed */}
-                </CardContent>
-              </Card>
-            </div>
-          )
-        )}
-      </div>
-    );
-  }
-
-  // Desktop/Tablet layout
   return (
     <ResizablePanelGroup
       direction="horizontal"
-      className={`flex ${commonBackgroundClasses}`}
+      className="flex h-screen bg-background text-foreground"
     >
-      <style>{`
-        @keyframes gradient-xy {
-          0%, 100% {
-            background-position: 0% 0%;
-          }
-          50% {
-            background-position: 100% 100%;
-          }
-        }
-        .animate-gradient-xy {
-          background-size: 400% 400%;
-          animation: gradient-xy 15s ease infinite;
-        }
-      `}</style>
       <ResizablePanel defaultSize={25} minSize={15}>
         <ChatSidebar
           conversations={conversations}
@@ -318,19 +240,8 @@ export const ChatApp = () => {
             onConversationDeleted={handleConversationDeleted}
           />
         ) : (
-          <div className="flex-1 flex items-center justify-center p-4">
-            <Card className="w-full max-w-md text-center bg-card/90 backdrop-blur-sm border-2 border-primary/20 shadow-xl animate-fade-in">
-              <CardHeader>
-                <MessageCircle className="h-16 w-16 mx-auto mb-4 text-primary animate-bounce-slow" />
-                <CardTitle className="text-3xl font-extrabold text-primary">Welcome to Snipchat!</CardTitle>
-                <CardDescription className="text-lg text-muted-foreground mt-2">
-                  Start a new adventure! Select a conversation from the sidebar or click the '+' button to create a new one.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {/* Additional content can go here if needed */}
-              </CardContent>
-            </Card>
+          <div className="flex-1 flex items-center justify-center text-muted-foreground">
+            Select a conversation to start chatting or start a new one.
           </div>
         )}
       </ResizablePanel>

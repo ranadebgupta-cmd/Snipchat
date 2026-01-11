@@ -1,4 +1,0 @@
-#Sun Jan 11 17:52:57 IST 2026
-base.0=/Users/ranadebgupta/dyad-apps/Snipchat/android/app/build/intermediates/dex/release/mergeDexRelease/classes.dex
-path.0=classes.dex
-renamed.0=classes.dex

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { Send, Trash2, PhoneCall, ArrowLeft } from "lucide-react"; // Import ArrowLeft icon
+import { Send, Trash2 } from "lucide-react";
 import { SupabaseConversation } from "./ChatApp";
 import {
   AlertDialog,
@@ -17,12 +17,11 @@ import {
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter,
+  AlertDialogFooter, // Corrected import
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useCall } from './CallProvider';
 
 interface Profile {
   id: string;
@@ -45,7 +44,6 @@ interface ChatMessageAreaProps {
   onSendMessage: (text: string) => void;
   currentUser: User;
   onConversationDeleted: (conversationId: string) => void;
-  onCloseChat?: () => void; // New optional prop for mobile back button
 }
 
 export const ChatMessageArea = ({
@@ -53,12 +51,10 @@ export const ChatMessageArea = ({
   onSendMessage,
   currentUser,
   onConversationDeleted,
-  onCloseChat, // Destructure new prop
 }: ChatMessageAreaProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessageContent, setNewMessageContent] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { startCall, activeCall } = useCall();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -90,7 +86,7 @@ export const ChatMessageArea = ({
       if (error) {
         console.error("[ChatMessageArea] Error fetching messages:", error);
         showError("Failed to load messages.");
-        setMessages([]);
+        setMessages([]); // Clear messages on error
       } else {
         console.log("[ChatMessageArea] Raw messages data received:", data);
         const processedData: Message[] = (data || []).map((msg: any) => {
@@ -98,7 +94,7 @@ export const ChatMessageArea = ({
           if (msg.profiles) {
             if (Array.isArray(msg.profiles) && msg.profiles.length > 0) {
               profileData = msg.profiles[0];
-            } else if (!Array.isArray(msg.profiles)) {
+            } else if (!Array.isArray(msg.profiles)) { // It's an object
               profileData = msg.profiles;
             }
           }
@@ -126,6 +122,7 @@ export const ChatMessageArea = ({
         },
         async (payload) => {
           console.log('[ChatMessageArea] New message received!', payload);
+          // Fetch the full message with profile data
           const { data: newMessage, error } = await supabase
             .from('messages')
             .select(
@@ -150,6 +147,7 @@ export const ChatMessageArea = ({
             console.error("[ChatMessageArea] Error fetching new message with profile:", error);
             showError("Failed to load new message details.");
           } else if (newMessage) {
+            // Process profiles for the new message
             let newProfileData: Profile | null = null;
             if (newMessage.profiles) {
               if (Array.isArray(newMessage.profiles) && newMessage.profiles.length > 0) {
@@ -200,7 +198,7 @@ export const ChatMessageArea = ({
 
   const getConversationAvatar = () => {
     if (conversation.name) {
-      return "/placeholder.svg";
+      return "/placeholder.svg"; // Placeholder for group chat
     }
     const otherParticipants = conversation.conversation_participants.filter(
       (p) => p.user_id !== currentUser.id
@@ -226,71 +224,44 @@ export const ChatMessageArea = ({
     }
   };
 
-  const handleStartCall = () => {
-    if (!currentUser) {
-      showError("You must be logged in to start a call.");
-      return;
-    }
-    const participantIds = conversation.conversation_participants.map(p => p.user_id);
-    startCall(conversation.id, participantIds);
-  };
-
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-800 text-foreground shadow-lg rounded-lg overflow-hidden">
-      <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md">
+    <div className="flex flex-col h-full bg-background text-foreground">
+      <div className="flex items-center justify-between p-4 border-b">
         <div className="flex items-center gap-3">
-          {onCloseChat && ( // Show back button only if onCloseChat prop is provided (i.e., on mobile)
-            <Button variant="ghost" size="icon" onClick={onCloseChat} className="text-white hover:bg-white/20">
-              <ArrowLeft className="h-5 w-5" />
-              <span className="sr-only">Back to conversations</span>
-            </Button>
-          )}
-          <Avatar className="h-10 w-10 border-2 border-white">
+          <Avatar className="h-9 w-9">
             <AvatarImage src={getConversationAvatar()} alt={getConversationTitle()} />
-            <AvatarFallback className="bg-white text-blue-600 font-bold">{getConversationTitle().charAt(0)}</AvatarFallback>
+            <AvatarFallback>{getConversationTitle().charAt(0)}</AvatarFallback>
           </Avatar>
-          <h3 className="text-xl font-bold">{getConversationTitle()}</h3>
+          <h3 className="text-lg font-semibold">{getConversationTitle()}</h3>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white hover:bg-white/20"
-            onClick={handleStartCall}
-            disabled={!!activeCall}
-          >
-            <PhoneCall className="h-5 w-5" />
-            <span className="sr-only">Start Call</span>
-          </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
-                <Trash2 className="h-5 w-5" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete this conversation
-                  for all participants and remove its data from our servers.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeleteConversation} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80">
+              <Trash2 className="h-5 w-5" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete this conversation
+                for all participants and remove its data from our servers.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter> {/* Corrected component name */}
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteConversation} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter> {/* Corrected component name */}
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
-      <ScrollArea className="flex-1 p-4 bg-gray-50 dark:bg-gray-900">
+      <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">
           {messages.length === 0 ? (
-            <p className="text-center text-muted-foreground py-10 text-lg">No messages yet. Start the conversation!</p>
+            <p className="text-center text-muted-foreground">No messages yet. Start the conversation!</p>
           ) : (
             messages.map((message) => (
               <div
@@ -308,17 +279,17 @@ export const ChatMessageArea = ({
                 )}
                 <div
                   className={cn(
-                    "max-w-[70%] p-3 rounded-2xl shadow-md relative",
+                    "max-w-[70%] p-3 rounded-lg",
                     message.sender_id === currentUser.id
-                      ? "bg-blue-600 text-white rounded-br-none"
-                      : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100 rounded-bl-none"
+                      ? "bg-primary text-primary-foreground rounded-br-none"
+                      : "bg-muted text-muted-foreground rounded-bl-none"
                   )}
                 >
                   <p className="text-sm font-medium mb-1">
                     {message.sender_id === currentUser.id ? "You" : message.profiles?.first_name || "Unknown"}
                   </p>
                   <p className="text-base">{message.content}</p>
-                  <p className="text-xs text-right mt-1 opacity-80">
+                  <p className="text-xs text-right mt-1 opacity-70">
                     {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
@@ -335,7 +306,7 @@ export const ChatMessageArea = ({
         </div>
       </ScrollArea>
 
-      <div className="p-4 border-t flex items-center gap-2 bg-white dark:bg-gray-800 shadow-inner">
+      <div className="p-4 border-t flex items-center gap-2">
         <Input
           placeholder="Type your message..."
           value={newMessageContent}
@@ -345,9 +316,9 @@ export const ChatMessageArea = ({
               handleSend();
             }
           }}
-          className="flex-1 border-primary/30 focus:border-primary focus:ring-primary"
+          className="flex-1"
         />
-        <Button onClick={handleSend} disabled={!newMessageContent.trim()} className="bg-blue-600 hover:bg-blue-700 text-white">
+        <Button onClick={handleSend} disabled={!newMessageContent.trim()}>
           <Send className="h-5 w-5" />
           <span className="sr-only">Send message</span>
         </Button>
