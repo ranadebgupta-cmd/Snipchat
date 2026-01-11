@@ -67,7 +67,7 @@ export const ChatMessageArea = ({
 
   useEffect(() => {
     const fetchMessages = async () => {
-      // console.log("[ChatMessageArea] Attempting to fetch messages for conversation ID:", conversation.id); // Removed log
+      console.log("[ChatMessageArea] Fetching initial messages for conversation ID:", conversation.id);
       const { data, error } = await supabase
         .from('messages')
         .select(
@@ -93,7 +93,6 @@ export const ChatMessageArea = ({
         showError("Failed to load messages.");
         setMessages([]);
       } else {
-        // console.log("[ChatMessageArea] Raw messages data received:", data); // Removed log
         const processedData: Message[] = (data || []).map((msg: any) => {
           let profileData: Profile | null = null;
           if (msg.profiles) {
@@ -109,12 +108,13 @@ export const ChatMessageArea = ({
           };
         });
         setMessages(processedData);
-        // console.log("[ChatMessageArea] Processed messages set:", processedData); // Removed log
+        console.log("[ChatMessageArea] Initial messages loaded:", processedData);
       }
     };
 
     fetchMessages();
 
+    console.log(`[ChatMessageArea] Subscribing to real-time changes for conversation:${conversation.id}`);
     const channel = supabase
       .channel(`conversation:${conversation.id}`)
       .on(
@@ -125,56 +125,35 @@ export const ChatMessageArea = ({
           table: 'messages',
           filter: `conversation_id=eq.${conversation.id}`,
         },
-        async (payload) => {
-          // console.log('[ChatMessageArea] New message received!', payload); // Removed log
-          // Fetch the full message with profile data
-          const { data: newMessage, error } = await supabase
-            .from('messages')
-            .select(
-              `
-              id,
-              conversation_id,
-              sender_id,
-              content,
-              created_at,
-              profiles (
-                id,
-                first_name,
-                last_name,
-                avatar_url
-              )
-              `
-            )
-            .eq('id', payload.new.id)
-            .single();
+        (payload) => {
+          console.log('[ChatMessageArea] Real-time new message payload received:', payload);
 
-          if (error) {
-            console.error("[ChatMessageArea] Error fetching new message with profile:", error);
-            showError("Failed to load new message details.");
-          } else if (newMessage) {
-            // Process profiles for the new message
-            let newProfileData: Profile | null = null;
-            if (newMessage.profiles) {
-              if (Array.isArray(newMessage.profiles) && newMessage.profiles.length > 0) {
-                newProfileData = newMessage.profiles[0];
-              } else if (!Array.isArray(newMessage.profiles)) {
-                newProfileData = newMessage.profiles;
-              }
-            }
-            const processedNewMessage: Message = {
-              ...newMessage,
-              profiles: newProfileData,
-            };
-            setMessages((prevMessages) => [...prevMessages, processedNewMessage]);
-          }
+          const newMessageData = payload.new as Message; 
+
+          // Find the sender's profile from the current conversation's participants
+          const senderProfile = conversation.conversation_participants.find(
+            (p) => p.user_id === newMessageData.sender_id
+          )?.profiles;
+
+          const processedNewMessage: Message = {
+            ...newMessageData,
+            profiles: senderProfile || null, 
+          };
+
+          setMessages((prevMessages) => {
+            const updatedMessages = [...prevMessages, processedNewMessage];
+            console.log('[ChatMessageArea] Messages updated via real-time:', updatedMessages);
+            return updatedMessages;
+          });
         }
       )
       .subscribe();
 
     return () => {
+      console.log(`[ChatMessageArea] Unsubscribing from conversation:${conversation.id}`);
       supabase.removeChannel(channel);
     };
-  }, [conversation.id]);
+  }, [conversation.id, conversation.conversation_participants]); // Added conversation.conversation_participants to dependencies
 
   useEffect(() => {
     scrollToBottom();
