@@ -5,7 +5,7 @@ import { User } from "@supabase/supabase-js";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { SupabaseConversation } from "@/components/ChatApp";
-import { PlusCircle, LogOut, UserPlus, X, User as UserIcon, Settings } from "lucide-react"; // Import LogOut, UserPlus, X, User, Settings icons
+import { PlusCircle, LogOut, UserPlus, X, User as UserIcon, PhoneCall } from "lucide-react"; // Import PhoneCall icon
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,8 +23,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { showError, showSuccess } from "@/utils/toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Spinner } from "./Spinner"; // Import Spinner
-import { useNavigate } from "react-router-dom"; // Import useNavigate
+import { Spinner } from "./Spinner";
+import { useNavigate } from "react-router-dom";
+import { useCall } from "./CallProvider"; // Import useCall
 
 interface ChatSidebarProps {
   conversations: SupabaseConversation[];
@@ -40,7 +41,6 @@ interface ConversationItemProps {
   currentUser: User;
 }
 
-// Define a Profile type for search results
 interface SearchProfile {
   id: string;
   first_name: string | null;
@@ -73,17 +73,15 @@ const ConversationItem = ({
 
   const getDisplayAvatar = () => {
     if (isGroupChat) {
-      // Placeholder for group chat avatar
-      return "/placeholder.svg";
+      return "https://api.dicebear.com/7.x/lorelei/svg?seed=GroupChat"; // Placeholder for group chat avatar
     }
     if (otherParticipants.length > 0) {
-      return otherParticipants[0].profiles.avatar_url || "/placeholder.svg";
+      return otherParticipants[0].profiles.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${otherParticipants[0].profiles.first_name || "User"}`;
     }
     return "/placeholder.svg";
   };
 
   const displayLatestMessage = () => {
-    // Use the new latest_message_content property
     if (!conversation.latest_message_content) {
       return "No messages yet.";
     }
@@ -107,23 +105,25 @@ const ConversationItem = ({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors",
+        "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-200 ease-in-out",
         isSelected
-          ? "bg-primary text-primary-foreground"
-          : "hover:bg-muted/50"
+          ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md scale-[1.02]"
+          : "hover:bg-muted/50 dark:hover:bg-gray-700 hover:scale-[1.01]"
       )}
       onClick={() => onSelect(conversation.id)}
     >
-      <Avatar className="h-10 w-10">
+      <Avatar className="h-10 w-10 border-2 border-white/50">
         <AvatarImage src={getDisplayAvatar()} alt={getDisplayName()} />
-        <AvatarFallback>{getDisplayName().charAt(0)}</AvatarFallback>
+        <AvatarFallback className={cn(isSelected ? "bg-white text-blue-600" : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100")}>
+          {getDisplayName().charAt(0)}
+        </AvatarFallback>
       </Avatar>
       <div className="flex-1 overflow-hidden">
         <p className="font-medium truncate">{getDisplayName()}</p>
         <p
           className={cn(
             "text-sm truncate",
-            isSelected ? "text-primary-foreground/80" : "text-muted-foreground"
+            isSelected ? "text-white/80" : "text-muted-foreground dark:text-gray-400"
           )}
         >
           {displayLatestMessage()}
@@ -146,9 +146,9 @@ export const ChatSidebar = ({
   const [selectedNewChatParticipants, setSelectedNewChatParticipants] = useState<SearchProfile[]>([]);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
   const [isCreatingChat, setIsCreatingChat] = useState(false);
-  const navigate = useNavigate(); // Initialize useNavigate
+  const navigate = useNavigate();
+  const { activeCall } = useCall(); // Use activeCall from context
 
-  // Moved handleSearchUsers declaration before its usage in useEffect
   const handleSearchUsers = useCallback(async (term: string) => {
     if (!term.trim()) {
       setSearchResults([]);
@@ -160,7 +160,7 @@ export const ChatSidebar = ({
         .from('profiles')
         .select('id, first_name, last_name, avatar_url')
         .or(`first_name.ilike.%${term}%,last_name.ilike.%${term}%`)
-        .neq('id', currentUser.id); // Exclude current user from search results
+        .neq('id', currentUser.id);
 
       if (error) {
         console.error("[ChatSidebar] Error searching users:", error);
@@ -177,7 +177,6 @@ export const ChatSidebar = ({
     }
   }, [currentUser.id]);
 
-  // Debounce search term
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       if (searchTerm.trim()) {
@@ -185,7 +184,7 @@ export const ChatSidebar = ({
       } else {
         setSearchResults([]);
       }
-    }, 300); // 300ms debounce
+    }, 300);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchTerm, handleSearchUsers]);
@@ -193,8 +192,8 @@ export const ChatSidebar = ({
   const handleAddParticipantToNewChat = (profile: SearchProfile) => {
     if (!selectedNewChatParticipants.some(p => p.id === profile.id)) {
       setSelectedNewChatParticipants(prev => [...prev, profile]);
-      setSearchTerm(""); // Clear search term after adding
-      setSearchResults([]); // Clear search results
+      setSearchTerm("");
+      setSearchResults([]);
     }
   };
 
@@ -215,10 +214,9 @@ export const ChatSidebar = ({
         return;
       }
 
-      // 1. Create the conversation
       const { data: conversationData, error: conversationError } = await supabase
         .from('conversations')
-        .insert({ name: newChatName.trim() || null }) // Allow null for 1-on-1 chats
+        .insert({ name: newChatName.trim() || null })
         .select()
         .single();
 
@@ -228,7 +226,6 @@ export const ChatSidebar = ({
 
       const newConversationId = conversationData.id;
 
-      // 2. Add all selected participants (including current user)
       const participantInserts = participantsToInclude.map(p => ({
         conversation_id: newConversationId,
         user_id: p.id,
@@ -248,7 +245,7 @@ export const ChatSidebar = ({
       setSearchResults([]);
       setSelectedNewChatParticipants([]);
       setIsNewChatDialogOpen(false);
-      onSelectConversation(newConversationId); // Select the newly created chat
+      onSelectConversation(newConversationId);
     } catch (error: any) {
       console.error("[ChatSidebar] Error creating new chat:", error);
       showError(`Failed to create chat: ${error.message || "Unknown error"}`);
@@ -275,18 +272,18 @@ export const ChatSidebar = ({
   };
 
   return (
-    <div className="flex flex-col h-full border-r bg-sidebar text-sidebar-foreground">
-      <div className="p-4 border-b flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Chats</h2>
+    <div className="flex flex-col h-full border-r bg-sidebar dark:bg-gray-900 text-sidebar-foreground dark:text-gray-100 shadow-xl">
+      <div className="p-4 border-b bg-gradient-to-r from-blue-500 to-purple-600 text-white flex items-center justify-between shadow-md">
+        <h2 className="text-2xl font-extrabold">Chats</h2>
         <div className="flex items-center gap-2">
           <Dialog open={isNewChatDialogOpen} onOpenChange={setIsNewChatDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-sidebar-foreground hover:text-sidebar-primary">
-                <PlusCircle className="h-5 w-5" />
-                <span className="sr-only">New Chat</span>
+              <Button variant="default" size="sm" className="bg-white text-blue-600 hover:bg-blue-100 transition-colors duration-200 flex items-center gap-1 px-3 py-2 rounded-full shadow-md hover:shadow-lg">
+                <PlusCircle className="h-4 w-4" />
+                <span>New Chat</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[425px] bg-card dark:bg-gray-800 text-card-foreground dark:text-gray-100">
               <DialogHeader>
                 <DialogTitle>Create New Chat</DialogTitle>
                 <DialogDescription>
@@ -302,7 +299,7 @@ export const ChatSidebar = ({
                     id="chatName"
                     value={newChatName}
                     onChange={(e) => setNewChatName(e.target.value)}
-                    className="col-span-3"
+                    className="col-span-3 bg-background dark:bg-gray-700 text-foreground dark:text-gray-100 border-border dark:border-gray-600"
                     placeholder="e.g., Team Project Discussion (for group chats)"
                   />
                 </div>
@@ -316,11 +313,11 @@ export const ChatSidebar = ({
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       placeholder="Search by name..."
-                      className="mb-2"
+                      className="mb-2 bg-background dark:bg-gray-700 text-foreground dark:text-gray-100 border-border dark:border-gray-600"
                     />
                     {isSearchingUsers && <Spinner size="sm" className="ml-2" />}
                     {searchResults.length > 0 && (
-                      <ScrollArea className="h-[100px] w-full rounded-md border p-2 mb-2">
+                      <ScrollArea className="h-[100px] w-full rounded-md border p-2 mb-2 bg-background dark:bg-gray-700 border-border dark:border-gray-600">
                         {searchResults.map((profile) => (
                           <div key={profile.id} className="flex items-center justify-between py-1">
                             <div className="flex items-center gap-2">
@@ -335,6 +332,7 @@ export const ChatSidebar = ({
                               size="sm"
                               onClick={() => handleAddParticipantToNewChat(profile)}
                               disabled={selectedNewChatParticipants.some(p => p.id === profile.id)}
+                              className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                             >
                               <UserPlus className="h-4 w-4 mr-1" /> Add
                             </Button>
@@ -345,12 +343,12 @@ export const ChatSidebar = ({
                     {selectedNewChatParticipants.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-2">
                         {selectedNewChatParticipants.map(p => (
-                          <Badge key={p.id} variant="secondary" className="flex items-center gap-1">
+                          <Badge key={p.id} variant="secondary" className="flex items-center gap-1 bg-secondary dark:bg-gray-600 text-secondary-foreground dark:text-gray-100">
                             {`${p.first_name || ""} ${p.last_name || ""}`.trim()}
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground"
+                              className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground dark:hover:text-gray-50"
                               onClick={() => handleRemoveParticipantFromNewChat(p.id)}
                             >
                               <X className="h-3 w-3" />
@@ -363,26 +361,26 @@ export const ChatSidebar = ({
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={handleCreateNewChat} disabled={isCreatingChat || selectedNewChatParticipants.length === 0}>
+                <Button onClick={handleCreateNewChat} disabled={isCreatingChat || selectedNewChatParticipants.length === 0} className="bg-primary text-primary-foreground hover:bg-primary/90">
                   {isCreatingChat ? "Creating..." : "Create Chat"}
                 </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          <Button variant="ghost" size="icon" onClick={handleEditProfile} className="text-sidebar-foreground hover:text-sidebar-primary">
+          <Button variant="ghost" size="icon" onClick={handleEditProfile} className="text-white hover:bg-white/20 transition-colors">
             <UserIcon className="h-5 w-5" />
             <span className="sr-only">Edit Profile</span>
           </Button>
-          <Button variant="ghost" size="icon" onClick={handleLogout} className="text-sidebar-foreground hover:text-destructive">
+          <Button variant="ghost" size="icon" onClick={handleLogout} className="text-white hover:bg-white/20 hover:text-red-300 transition-colors">
             <LogOut className="h-5 w-5" />
             <span className="sr-only">Logout</span>
           </Button>
         </div>
       </div>
-      <ScrollArea className="flex-1 p-2">
+      <ScrollArea className="flex-1 p-2 bg-sidebar dark:bg-gray-900">
         <div className="space-y-1">
           {conversations.length === 0 ? (
-            <p className="p-3 text-muted-foreground text-center">No conversations yet.</p>
+            <p className="p-3 text-muted-foreground dark:text-gray-400 text-center">No conversations yet. Click '+' to start one!</p>
           ) : (
             conversations.map((conv) => (
               <ConversationItem

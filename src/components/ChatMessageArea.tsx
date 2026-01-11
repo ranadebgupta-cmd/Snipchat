@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { Send, Trash2, ArrowLeft } from "lucide-react"; // Import ArrowLeft
+import { Send, Trash2, ArrowLeft, PhoneCall } from "lucide-react"; // Import ArrowLeft, PhoneCall
 import { SupabaseConversation } from "./ChatApp";
 import {
   AlertDialog,
@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useCall } from "./CallProvider"; // Import useCall
 
 interface Profile {
   id: string;
@@ -57,6 +58,7 @@ export const ChatMessageArea = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessageContent, setNewMessageContent] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { startCall, activeCall } = useCall(); // Use startCall and activeCall from context
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -216,106 +218,128 @@ export const ChatMessageArea = ({
   const getConversationAvatar = () => {
     if (conversation.name) {
       // Placeholder for group chat avatar
-      return "/placeholder.svg";
+      return "https://api.dicebear.com/7.x/lorelei/svg?seed=GroupChat";
     }
     const otherParticipants = conversation.conversation_participants.filter(
       (p) => p.user_id !== currentUser.id
     );
     if (otherParticipants.length > 0) {
-      return otherParticipants[0].profiles.avatar_url || "/placeholder.svg";
+      return otherParticipants[0].profiles.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${otherParticipants[0].profiles.first_name || "User"}`;
     }
     return "/placeholder.svg";
   };
 
+  const handleStartCall = () => {
+    if (!currentUser) {
+      showError("You must be logged in to start a call.");
+      return;
+    }
+    const participantIds = conversation.conversation_participants.map(p => p.user_id);
+    startCall(conversation.id, participantIds);
+  };
+
   return (
-    <div className="flex flex-col h-full bg-background text-foreground">
-      <div className="flex items-center justify-between p-4 border-b">
+    <div className="flex flex-col h-full bg-white dark:bg-gray-800 text-foreground shadow-lg rounded-lg overflow-hidden">
+      <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md">
         <div className="flex items-center gap-3">
-          {onCloseChat && ( // Conditionally render back button
-            <Button variant="ghost" size="icon" onClick={onCloseChat} className="text-foreground hover:bg-muted">
+          {onCloseChat && (
+            <Button variant="ghost" size="icon" onClick={onCloseChat} className="text-white hover:bg-white/20">
               <ArrowLeft className="h-5 w-5" />
               <span className="sr-only">Back to conversations</span>
             </Button>
           )}
-          <Avatar className="h-9 w-9">
+          <Avatar className="h-10 w-10 border-2 border-white">
             <AvatarImage src={getConversationAvatar()} alt={getConversationTitle()} />
-            <AvatarFallback>{getConversationTitle().charAt(0)}</AvatarFallback>
+            <AvatarFallback className="bg-white text-blue-600 font-bold">
+              {getConversationTitle().charAt(0)}
+            </AvatarFallback>
           </Avatar>
-          <h3 className="text-lg font-semibold">{getConversationTitle()}</h3>
+          <h3 className="text-xl font-bold">{getConversationTitle()}</h3>
         </div>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80">
-              <Trash2 className="h-5 w-5" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete this conversation
-                for all participants and remove its data from our servers.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteConversation} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={handleStartCall} disabled={!!activeCall}>
+            <PhoneCall className="h-5 w-5" />
+            <span className="sr-only">Start Call</span>
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-red-300">
+                <Trash2 className="h-5 w-5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="bg-card dark:bg-gray-800 text-card-foreground dark:text-gray-100">
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete this conversation
+                  for all participants and remove its data from our servers.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteConversation} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
 
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea className="flex-1 p-4 bg-gray-50 dark:bg-gray-900">
         <div className="space-y-4">
           {messages.length === 0 ? (
-            <p className="text-center text-muted-foreground">No messages yet. Start the conversation!</p>
+            <p className="text-center text-muted-foreground py-10 text-lg">No messages yet. Start the conversation!</p>
           ) : (
-            messages.map((message) => (
-              <div
-                key={message.id}
-                className={cn(
-                  "flex items-end gap-3",
-                  message.sender_id === currentUser.id ? "justify-end" : "justify-start"
-                )}
-              >
-                {message.sender_id !== currentUser.id && (
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={message.profiles?.avatar_url || "/placeholder.svg"} alt={message.profiles?.first_name || "User"} />
-                    <AvatarFallback>{message.profiles?.first_name?.charAt(0) || "U"}</AvatarFallback>
-                  </Avatar>
-                )}
+            messages.map((message) => {
+              const senderProfile = message.profiles || conversation.conversation_participants.find(p => p.user_id === message.sender_id)?.profiles;
+              const senderFirstName = senderProfile?.first_name || "Unknown";
+              const senderAvatar = senderProfile?.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${senderFirstName}`;
+
+              return (
                 <div
+                  key={message.id}
                   className={cn(
-                    "max-w-[70%] p-3 rounded-lg",
-                    message.sender_id === currentUser.id
-                      ? "bg-primary text-primary-foreground rounded-br-none"
-                      : "bg-muted text-muted-foreground rounded-bl-none"
+                    "flex items-end gap-3",
+                    message.sender_id === currentUser.id ? "justify-end" : "justify-start"
                   )}
                 >
-                  <p className="text-sm font-medium mb-1">
-                    {message.sender_id === currentUser.id ? "You" : message.profiles?.first_name || "Unknown"}
-                  </p>
-                  <p className="text-base">{message.content}</p>
-                  <p className="text-xs text-right mt-1 opacity-70">
-                    {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
+                  {message.sender_id !== currentUser.id && (
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={senderAvatar} alt={senderFirstName} />
+                      <AvatarFallback>{senderFirstName.charAt(0) || "U"}</AvatarFallback>
+                    </Avatar>
+                  )}
+                  <div
+                    className={cn(
+                      "max-w-[70%] p-3 rounded-2xl shadow-md relative",
+                      message.sender_id === currentUser.id
+                        ? "bg-blue-600 text-white rounded-br-none"
+                        : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100 rounded-bl-none"
+                    )}
+                  >
+                    <p className="text-sm font-medium mb-1">
+                      {message.sender_id === currentUser.id ? "You" : senderFirstName}
+                    </p>
+                    <p className="text-base">{message.content}</p>
+                    <p className="text-xs text-right mt-1 opacity-80">
+                      {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                  {message.sender_id === currentUser.id && (
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={senderAvatar} alt={senderFirstName} />
+                      <AvatarFallback>{senderFirstName.charAt(0) || "Y"}</AvatarFallback>
+                    </Avatar>
+                  )}
                 </div>
-                {message.sender_id === currentUser.id && (
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={message.profiles?.avatar_url || "/placeholder.svg"} alt={message.profiles?.first_name || "You"} />
-                    <AvatarFallback>{message.profiles?.first_name?.charAt(0) || "Y"}</AvatarFallback>
-                  </Avatar>
-                )}
-              </div>
-            ))
-          )}
+              );
+            }))}
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
 
-      <div className="p-4 border-t flex items-center gap-2">
+      <div className="p-4 border-t flex items-center gap-2 bg-white dark:bg-gray-800 shadow-inner">
         <Input
           placeholder="Type your message..."
           value={newMessageContent}
@@ -325,9 +349,9 @@ export const ChatMessageArea = ({
               handleSend();
             }
           }}
-          className="flex-1"
+          className="flex-1 border-primary/30 focus:border-primary focus:ring-primary"
         />
-        <Button onClick={handleSend} disabled={!newMessageContent.trim()}>
+        <Button onClick={handleSend} disabled={!newMessageContent.trim()} className="bg-blue-600 hover:bg-blue-700 text-white">
           <Send className="h-5 w-5" />
           <span className="sr-only">Send message</span>
         </Button>

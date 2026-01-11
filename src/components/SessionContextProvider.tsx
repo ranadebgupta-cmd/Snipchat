@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Spinner } from './Spinner';
 import { showError } from '@/utils/toast';
+import { CallProvider } from './CallProvider'; // Import CallProvider
 
 interface SessionContextProps {
   children: React.ReactNode;
@@ -67,5 +68,9 @@ export const SessionContextProvider = ({ children }: SessionContextProps) => {
     );
   }
 
-  return <>{children}</>;
+  return (
+    <CallProvider currentUser={session?.user || null}>
+      {children}
+    </CallProvider>
+  );
 };

@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { showSuccess, showError } from '@/utils/toast';
 import { Spinner } from '@/components/Spinner';
 import { useNavigate } from 'react-router-dom';
-import { Camera } from 'lucide-react'; // Import Camera icon
+import { Camera } from 'lucide-react';
 
 interface ProfileData {
   id: string;
@@ -28,7 +28,7 @@ const Profile = () => {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploading, setIsUploading] = useState(false); // New state for upload loading
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (!isAuthLoading && !user) {
@@ -96,30 +96,27 @@ const Profile = () => {
 
     setIsUploading(true);
     const fileExt = file.name.split('.').pop();
-    const fileName = `${user.id}.${fileExt}`; // Use user ID as filename to ensure uniqueness per user
-    const filePath = `${user.id}/${fileName}`; // Store in a folder named after the user ID
+    const fileName = `${user.id}.${fileExt}`;
+    const filePath = `${user.id}/${fileName}`;
 
     try {
-      // Upload file to Supabase storage
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: true, // Overwrite existing file if it has the same name
+          upsert: true,
         });
 
       if (uploadError) {
         throw uploadError;
       }
 
-      // Get public URL
       const { data: publicUrlData } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
 
       if (publicUrlData) {
         setAvatarUrl(publicUrlData.publicUrl);
-        // Update profile in the database
         const { error: updateError } = await supabase
           .from('profiles')
           .update({ avatar_url: publicUrlData.publicUrl, updated_at: new Date().toISOString() })
@@ -157,58 +154,86 @@ const Profile = () => {
     );
   }
 
+  const gradientBackgroundClasses = "min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-400 to-purple-600 dark:from-gray-900 dark:to-indigo-950 p-4 animate-gradient-xy";
+
   return (
-    <div className="container mx-auto p-6 max-w-md bg-card text-card-foreground rounded-lg shadow-lg mt-10">
-      <h1 className="text-3xl font-bold text-center mb-6">Edit Profile</h1>
-      <form onSubmit={handleSave} className="space-y-6">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="relative group">
-            <Avatar className="h-24 w-24">
-              <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={`${firstName} ${lastName}`} />
-              <AvatarFallback className="text-4xl">{firstName.charAt(0) || lastName.charAt(0) || 'U'}</AvatarFallback>
-            </Avatar>
-            <Label htmlFor="avatar-upload" className="absolute inset-0 flex items-center justify-center bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-              {isUploading ? <Spinner size="sm" className="text-white" /> : <Camera className="h-8 w-8" />}
-              <span className="sr-only">Upload Avatar</span>
+    <div className={gradientBackgroundClasses}>
+      <style>{`
+        @keyframes gradient-xy {
+          0%, 100% {
+            background-position: 0% 0%;
+          }
+          50% {
+            background-position: 100% 100%;
+          }
+        }
+        .animate-gradient-xy {
+          background-size: 400% 400%;
+          animation: gradient-xy 15s ease infinite;
+        }
+      `}</style>
+      <div className="w-full max-w-md p-8 space-y-6 bg-white dark:bg-gray-800 rounded-xl shadow-2xl transform transition-all duration-300 hover:scale-105 hover:shadow-3xl animate-fade-in">
+        <h1 className="text-4xl font-extrabold text-center text-gray-900 dark:text-white mb-6 tracking-tight">
+          Edit Your Profile
+        </h1>
+        <form onSubmit={handleSave} className="space-y-6">
+          <div className="flex flex-col items-center space-y-4">
+            <div className="relative group">
+              <Avatar className="h-28 w-28 border-4 border-primary dark:border-primary-foreground shadow-lg transition-transform group-hover:scale-105">
+                <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={`${firstName} ${lastName}`} />
+                <AvatarFallback className="text-5xl bg-primary text-primary-foreground">
+                  {firstName.charAt(0) || lastName.charAt(0) || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <Label htmlFor="avatar-upload" className="absolute inset-0 flex items-center justify-center bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                {isUploading ? <Spinner size="sm" className="text-white" /> : <Camera className="h-10 w-10" />}
+                <span className="sr-only">Upload Avatar</span>
+              </Label>
+              <Input
+                id="avatar-upload"
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+                disabled={isUploading}
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="firstName" className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+              First Name
             </Label>
             <Input
-              id="avatar-upload"
-              type="file"
-              accept="image/*"
-              onChange={handleAvatarUpload}
-              className="hidden"
-              disabled={isUploading}
+              id="firstName"
+              type="text"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              required
+              className="w-full p-3 border-2 border-border dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 bg-background dark:bg-gray-700 text-foreground dark:text-gray-100"
             />
           </div>
-        </div>
 
-        <div>
-          <Label htmlFor="firstName">First Name</Label>
-          <Input
-            id="firstName"
-            type="text"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            required
-          />
-        </div>
+          <div>
+            <Label htmlFor="lastName" className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+              Last Name
+            </Label>
+            <Input
+              id="lastName"
+              type="text"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              required
+              className="w-full p-3 border-2 border-border dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 bg-background dark:bg-gray-700 text-foreground dark:text-gray-100"
+            />
+          </div>
 
-        <div>
-          <Label htmlFor="lastName">Last Name</Label>
-          <Input
-            id="lastName"
-            type="text"
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-            required
-          />
-        </div>
-
-        <Button type="submit" className="w-full" disabled={isSaving || isUploading}>
-          {isSaving ? <Spinner size="sm" className="mr-2" /> : null}
-          {isSaving ? 'Saving...' : 'Save Profile'}
-        </Button>
-      </form>
+          <Button type="submit" className="w-full py-3 text-lg font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors duration-200" disabled={isSaving || isUploading}>
+            {isSaving ? <Spinner size="sm" className="mr-2" /> : null}
+            {isSaving ? 'Saving...' : 'Save Profile'}
+          </Button>
+        </form>
+      </div>
     </div>
   );
 };

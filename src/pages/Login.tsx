@@ -4,18 +4,36 @@ import React from 'react';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
-// import { MadeWithDyad } from '@/components/made-with-dyad'; // Removed import
 
 const Login = () => {
+  const gradientBackgroundClasses = "min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-400 to-purple-600 dark:from-gray-900 dark:to-indigo-950 p-4 animate-gradient-xy";
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
-        <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-          Welcome to ChatApp
-        </h2>
-        <p className="text-center text-gray-600 dark:text-gray-400">
-          Sign in or create an account to start chatting.
-        </p>
+    <div className={gradientBackgroundClasses}>
+      <style>{`
+        @keyframes gradient-xy {
+          0%, 100% {
+            background-position: 0% 0%;
+          }
+          50% {
+            background-position: 100% 100%;
+          }
+        }
+        .animate-gradient-xy {
+          background-size: 400% 400%;
+          animation: gradient-xy 15s ease infinite;
+        }
+      `}</style>
+      <div className="w-full max-w-md p-8 space-y-8 bg-white dark:bg-gray-800 rounded-xl shadow-2xl transform transition-all duration-300 hover:scale-105 hover:shadow-3xl">
+        <div className="flex flex-col items-center space-y-4">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-message-circle h-16 w-16 text-primary dark:text-primary-foreground animate-bounce-slow"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+          <h2 className="text-4xl font-extrabold text-center text-gray-900 dark:text-white tracking-tight">
+            Welcome to Snipchat
+          </h2>
+          <p className="text-lg text-center text-gray-600 dark:text-gray-400 max-w-xs">
+            Connect with friends and family instantly.
+          </p>
+        </div>
         <Auth
           supabaseClient={supabase}
           providers={[]}
@@ -26,6 +44,16 @@ const Login = () => {
                 colors: {
                   brand: 'hsl(var(--primary))',
                   brandAccent: 'hsl(var(--primary-foreground))',
+                  defaultButtonBackground: 'hsl(var(--primary))',
+                  defaultButtonBackgroundHover: 'hsl(var(--primary-foreground))',
+                  defaultButtonBorder: 'hsl(var(--primary))',
+                  defaultButtonText: 'hsl(var(--primary-foreground))',
+                  inputBackground: 'hsl(var(--background))',
+                  inputBorder: 'hsl(var(--border))',
+                  inputBorderHover: 'hsl(var(--ring))',
+                  inputBorderFocus: 'hsl(var(--ring))',
+                  inputText: 'hsl(var(--foreground))',
+                  inputLabelText: 'hsl(var(--muted-foreground))',
                 },
               },
             },
@@ -34,7 +62,6 @@ const Login = () => {
           redirectTo={window.location.origin}
         />
       </div>
-      {/* <MadeWithDyad /> Removed MadeWithDyad component */}
     </div>
   );
 };

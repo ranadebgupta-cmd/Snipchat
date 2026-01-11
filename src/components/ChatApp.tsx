@@ -13,7 +13,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { useIsMobile } from "@/hooks/use-mobile"; // Import useIsMobile
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Define types for Supabase data
 interface Profile {
@@ -23,14 +23,13 @@ interface Profile {
   avatar_url: string | null;
 }
 
-// Updated interface to use the new view structure
 export interface SupabaseConversation {
   id: string;
   name: string | null;
   created_at: string;
   conversation_participants: {
     user_id: string;
-    profiles: Profile; // Joined profile data for participants
+    profiles: Profile;
   }[];
   latest_message_content: string | null;
   latest_message_sender_id: string | null;
@@ -42,7 +41,7 @@ export const ChatApp = () => {
   const [conversations, setConversations] = useState<SupabaseConversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
-  const isMobile = useIsMobile(); // Use the hook to detect mobile
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!user || isAuthLoading) {
@@ -54,7 +53,6 @@ export const ChatApp = () => {
       setIsLoadingConversations(true);
       console.log("[ChatApp] Attempting to fetch conversations for user:", user.id);
       
-      // 1. Fetch basic conversation data and participants
       const { data: rawConversationsData, error: conversationsError } = await supabase
         .from('conversation_participants')
         .select(
@@ -87,7 +85,6 @@ export const ChatApp = () => {
       const rawConversations = rawConversationsData || [];
       const conversationIds = rawConversations.map((cp: any) => cp.conversations.id);
 
-      // 2. Fetch latest messages for all these conversations using the new view
       const { data: latestMessagesData, error: latestMessagesError } = await supabase
         .from('conversation_last_message')
         .select('*')
@@ -102,7 +99,6 @@ export const ChatApp = () => {
 
       const latestMessagesMap = new Map(latestMessagesData?.map(msg => [msg.conversation_id, msg]));
 
-      // 3. Process and combine the data
       const processedConversations: SupabaseConversation[] = rawConversations
         .map((cp: any) => {
           const conv = cp.conversations;
@@ -127,18 +123,17 @@ export const ChatApp = () => {
         })
         .filter(Boolean) as SupabaseConversation[];
 
-        // Sort conversations by the latest message's created_at for display
         processedConversations.sort((a, b) => {
           const dateA = a.latest_message_created_at ? new Date(a.latest_message_created_at).getTime() : 0;
           const dateB = b.latest_message_created_at ? new Date(b.latest_message_created_at).getTime() : 0;
-          return dateB - dateA; // Descending order
+          return dateB - dateA;
         });
 
         setConversations(processedConversations);
         if (processedConversations.length > 0 && !selectedConversationId) {
           setSelectedConversationId(processedConversations[0].id);
         } else if (processedConversations.length === 0) {
-          setSelectedConversationId(null); // No conversations left
+          setSelectedConversationId(null);
         }
         console.log("[ChatApp] Processed conversations:", processedConversations);
       setIsLoadingConversations(false);
@@ -146,7 +141,6 @@ export const ChatApp = () => {
 
     fetchConversations();
 
-    // Setup real-time listener for new messages or conversation updates
     const channel = supabase
       .channel('public:conversations')
       .on(
@@ -154,7 +148,7 @@ export const ChatApp = () => {
         { event: '*', schema: 'public', table: 'conversations' },
         (payload) => {
           console.log('[ChatApp] Conversation change received!', payload);
-          fetchConversations(); // Re-fetch conversations for simplicity
+          fetchConversations();
         }
       )
       .on(
@@ -162,7 +156,7 @@ export const ChatApp = () => {
         { event: '*', schema: 'public', table: 'messages' },
         (payload) => {
           console.log('[ChatApp] Message change received!', payload);
-          fetchConversations(); // Re-fetch conversations for simplicity
+          fetchConversations();
         }
       )
       .subscribe();
@@ -189,7 +183,6 @@ export const ChatApp = () => {
       console.error("Error sending message:", error);
       showError("Failed to send message.");
     }
-    // The real-time listener in ChatMessageArea will handle updating the UI
   };
 
   const handleConversationDeleted = (deletedConversationId: string) => {
@@ -197,7 +190,6 @@ export const ChatApp = () => {
       const updatedConversations = prevConversations.filter(
         (conv) => conv.id !== deletedConversationId
       );
-      // If the deleted conversation was selected, select the first available one or none
       if (selectedConversationId === deletedConversationId) {
         setSelectedConversationId(updatedConversations.length > 0 ? updatedConversations[0].id : null);
       }
@@ -219,43 +211,83 @@ export const ChatApp = () => {
   }
 
   if (!user) {
-    // Should be redirected by SessionContextProvider, but as a fallback
     return null;
   }
 
+  const gradientBackgroundClasses = "h-screen bg-gradient-to-br from-blue-200 via-purple-200 to-pink-200 dark:from-gray-800 dark:via-indigo-900 dark:to-purple-950 text-foreground animate-gradient-xy";
+
   return (
-    <ResizablePanelGroup
-      direction="horizontal"
-      className="flex h-screen bg-background text-foreground"
-    >
-      {isMobile && selectedConversationId ? null : ( // On mobile, hide sidebar if a chat is selected
-        <ResizablePanel defaultSize={isMobile ? 100 : 25} minSize={isMobile ? 100 : 15}>
+    <div className={gradientBackgroundClasses}>
+      <style>{`
+        @keyframes gradient-xy {
+          0%, 100% {
+            background-position: 0% 0%;
+          }
+          50% {
+            background-position: 100% 100%;
+          }
+        }
+        .animate-gradient-xy {
+          background-size: 400% 400%;
+          animation: gradient-xy 15s ease infinite;
+        }
+      `}</style>
+      {isMobile ? (
+        selectedConversationId ? (
+          <ChatMessageArea
+            conversation={selectedConversation!}
+            onSendMessage={handleSendMessage}
+            currentUser={user}
+            onConversationDeleted={handleConversationDeleted}
+            onCloseChat={handleCloseChat}
+          />
+        ) : (
           <ChatSidebar
             conversations={conversations}
             selectedConversationId={selectedConversationId}
             onSelectConversation={setSelectedConversationId}
             currentUser={user}
           />
-        </ResizablePanel>
-      )}
-      {!isMobile && <ResizableHandle withHandle />}
-      {isMobile && !selectedConversationId ? null : ( // On mobile, hide chat area if no chat is selected
-        <ResizablePanel defaultSize={isMobile ? 100 : 75} minSize={isMobile ? 100 : 30}>
-          {selectedConversation ? (
-            <ChatMessageArea
-              conversation={selectedConversation}
-              onSendMessage={handleSendMessage}
+        )
+      ) : (
+        <ResizablePanelGroup
+          direction="horizontal"
+          className="flex h-screen bg-background text-foreground"
+        >
+          <ResizablePanel defaultSize={25} minSize={15}>
+            <ChatSidebar
+              conversations={conversations}
+              selectedConversationId={selectedConversationId}
+              onSelectConversation={setSelectedConversationId}
               currentUser={user}
-              onConversationDeleted={handleConversationDeleted}
-              onCloseChat={isMobile ? handleCloseChat : undefined} // Pass onCloseChat only on mobile
             />
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground">
-              Select a conversation to start chatting or start a new one.
-            </div>
-          )}
-        </ResizablePanel>
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel defaultSize={75} minSize={30}>
+            {selectedConversation ? (
+              <ChatMessageArea
+                conversation={selectedConversation}
+                onSendMessage={handleSendMessage}
+                currentUser={user}
+                onConversationDeleted={handleConversationDeleted}
+              />
+            ) : (
+              <div className="flex-1 flex items-center justify-center p-4">
+                <div className="w-full max-w-md text-center bg-card/90 backdrop-blur-sm border-2 border-primary/20 shadow-xl animate-fade-in">
+                  <div className="p-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-message-circle h-16 w-16 mx-auto mb-4 text-primary animate-bounce-slow"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+                    <h3 className="text-3xl font-extrabold text-primary">Welcome to Snipchat!</h3>
+                    <p className="text-lg text-muted-foreground mt-2">
+                      Start a new adventure! Select a conversation from the sidebar or click the '+' button to create a new one.
+                    </p>
+                  </div>
+                  <div className="p-6 pt-0"></div>
+                </div>
+              </div>
+            )}
+          </ResizablePanel>
+        </ResizablePanelGroup>
       )}
-    </ResizablePanelGroup>
+    </div>
   );
 };
