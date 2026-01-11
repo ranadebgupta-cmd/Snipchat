@@ -17,7 +17,7 @@ import {
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter, // Corrected import
+  AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
@@ -225,18 +225,18 @@ export const ChatMessageArea = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-background text-foreground">
-      <div className="flex items-center justify-between p-4 border-b">
+    <div className="flex flex-col h-full bg-white dark:bg-gray-800 text-foreground shadow-lg rounded-lg overflow-hidden">
+      <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md">
         <div className="flex items-center gap-3">
-          <Avatar className="h-9 w-9">
+          <Avatar className="h-10 w-10 border-2 border-white">
             <AvatarImage src={getConversationAvatar()} alt={getConversationTitle()} />
-            <AvatarFallback>{getConversationTitle().charAt(0)}</AvatarFallback>
+            <AvatarFallback className="bg-white text-blue-600 font-bold">{getConversationTitle().charAt(0)}</AvatarFallback>
           </Avatar>
-          <h3 className="text-lg font-semibold">{getConversationTitle()}</h3>
+          <h3 className="text-xl font-bold">{getConversationTitle()}</h3>
         </div>
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80">
+            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
               <Trash2 className="h-5 w-5" />
             </Button>
           </AlertDialogTrigger>
@@ -248,20 +248,20 @@ export const ChatMessageArea = ({
                 for all participants and remove its data from our servers.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter> {/* Corrected component name */}
+            <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={handleDeleteConversation} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 Delete
               </AlertDialogAction>
-            </AlertDialogFooter> {/* Corrected component name */}
+            </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
       </div>
 
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea className="flex-1 p-4 bg-gray-50 dark:bg-gray-900">
         <div className="space-y-4">
           {messages.length === 0 ? (
-            <p className="text-center text-muted-foreground">No messages yet. Start the conversation!</p>
+            <p className="text-center text-muted-foreground py-10 text-lg">No messages yet. Start the conversation!</p>
           ) : (
             messages.map((message) => (
               <div
@@ -279,17 +279,17 @@ export const ChatMessageArea = ({
                 )}
                 <div
                   className={cn(
-                    "max-w-[70%] p-3 rounded-lg",
+                    "max-w-[70%] p-3 rounded-2xl shadow-md relative",
                     message.sender_id === currentUser.id
-                      ? "bg-primary text-primary-foreground rounded-br-none"
-                      : "bg-muted text-muted-foreground rounded-bl-none"
+                      ? "bg-blue-600 text-white rounded-br-none"
+                      : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100 rounded-bl-none"
                   )}
                 >
                   <p className="text-sm font-medium mb-1">
                     {message.sender_id === currentUser.id ? "You" : message.profiles?.first_name || "Unknown"}
                   </p>
                   <p className="text-base">{message.content}</p>
-                  <p className="text-xs text-right mt-1 opacity-70">
+                  <p className="text-xs text-right mt-1 opacity-80">
                     {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
@@ -306,7 +306,7 @@ export const ChatMessageArea = ({
         </div>
       </ScrollArea>
 
-      <div className="p-4 border-t flex items-center gap-2">
+      <div className="p-4 border-t flex items-center gap-2 bg-white dark:bg-gray-800 shadow-inner">
         <Input
           placeholder="Type your message..."
           value={newMessageContent}
@@ -316,9 +316,9 @@ export const ChatMessageArea = ({
               handleSend();
             }
           }}
-          className="flex-1"
+          className="flex-1 border-primary/30 focus:border-primary focus:ring-primary"
         />
-        <Button onClick={handleSend} disabled={!newMessageContent.trim()}>
+        <Button onClick={handleSend} disabled={!newMessageContent.trim()} className="bg-blue-600 hover:bg-blue-700 text-white">
           <Send className="h-5 w-5" />
           <span className="sr-only">Send message</span>
         </Button>

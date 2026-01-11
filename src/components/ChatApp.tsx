@@ -222,8 +222,22 @@ export const ChatApp = () => {
   return (
     <ResizablePanelGroup
       direction="horizontal"
-      className="flex h-screen bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-indigo-950 text-foreground"
+      className="flex h-screen bg-gradient-to-br from-blue-200 via-purple-200 to-pink-200 dark:from-gray-800 dark:via-indigo-900 dark:to-purple-950 text-foreground animate-gradient-xy"
     >
+      <style>{`
+        @keyframes gradient-xy {
+          0%, 100% {
+            background-position: 0% 0%;
+          }
+          50% {
+            background-position: 100% 100%;
+          }
+        }
+        .animate-gradient-xy {
+          background-size: 400% 400%;
+          animation: gradient-xy 15s ease infinite;
+        }
+      `}</style>
       <ResizablePanel defaultSize={25} minSize={15}>
         <ChatSidebar
           conversations={conversations}
@@ -243,12 +257,12 @@ export const ChatApp = () => {
           />
         ) : (
           <div className="flex-1 flex items-center justify-center p-4">
-            <Card className="w-full max-w-md text-center bg-card/80 backdrop-blur-sm">
+            <Card className="w-full max-w-md text-center bg-card/90 backdrop-blur-sm border-2 border-primary/20 shadow-xl animate-fade-in">
               <CardHeader>
-                <MessageCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <CardTitle className="text-2xl font-bold">Welcome to Snipchat!</CardTitle>
-                <CardDescription className="text-muted-foreground">
-                  Select a conversation from the sidebar to start chatting, or click the '+' button to create a new one.
+                <MessageCircle className="h-16 w-16 mx-auto mb-4 text-primary animate-bounce-slow" />
+                <CardTitle className="text-3xl font-extrabold text-primary">Welcome to Snipchat!</CardTitle>
+                <CardDescription className="text-lg text-muted-foreground mt-2">
+                  Start a new adventure! Select a conversation from the sidebar or click the '+' button to create a new one.
                 </CardDescription>
               </CardHeader>
               <CardContent>

@@ -85,10 +85,25 @@ export default {
             height: "0",
           },
         },
+        "gradient-xy": {
+          "0%, 100%": { "background-position": "0% 0%" },
+          "50%": { "background-position": "100% 100%" },
+        },
+        "fade-in": {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "bounce-slow": {
+          "0%, 100%": { transform: "translateY(-5%)" },
+          "50%": { transform: "translateY(0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "gradient-xy": "gradient-xy 15s ease infinite",
+        "fade-in": "fade-in 0.5s ease-out forwards",
+        "bounce-slow": "bounce-slow 2s infinite alternate ease-in-out",
       },
     },
   },
