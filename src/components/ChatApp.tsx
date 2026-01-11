@@ -13,8 +13,9 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"; // Import Card components
-import { MessageCircle } from "lucide-react"; // Import MessageCircle icon
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { MessageCircle } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile"; // Import the useIsMobile hook
 
 // Define types for Supabase data
 interface Profile {
@@ -43,6 +44,7 @@ export const ChatApp = () => {
   const [conversations, setConversations] = useState<SupabaseConversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  const isMobile = useIsMobile(); // Use the hook
 
   useEffect(() => {
     if (!user || isAuthLoading) {
@@ -219,10 +221,67 @@ export const ChatApp = () => {
     return null;
   }
 
+  const commonBackgroundClasses = "h-screen bg-gradient-to-br from-blue-200 via-purple-200 to-pink-200 dark:from-gray-800 dark:via-indigo-900 dark:to-purple-950 text-foreground animate-gradient-xy";
+
+  if (isMobile) {
+    return (
+      <div className={commonBackgroundClasses}>
+        <style>{`
+          @keyframes gradient-xy {
+            0%, 100% {
+              background-position: 0% 0%;
+            }
+            50% {
+              background-position: 100% 100%;
+            }
+          }
+          .animate-gradient-xy {
+            background-size: 400% 400%;
+            animation: gradient-xy 15s ease infinite;
+          }
+        `}</style>
+        {selectedConversationId === null ? (
+          <ChatSidebar
+            conversations={conversations}
+            selectedConversationId={selectedConversationId}
+            onSelectConversation={setSelectedConversationId}
+            currentUser={user}
+          />
+        ) : (
+          selectedConversation ? (
+            <ChatMessageArea
+              conversation={selectedConversation}
+              onSendMessage={handleSendMessage}
+              currentUser={user}
+              onConversationDeleted={handleConversationDeleted}
+              onCloseChat={() => setSelectedConversationId(null)} // Back button for mobile
+            />
+          ) : (
+            <div className="flex-1 flex items-center justify-center p-4 h-full">
+              <Card className="w-full max-w-md text-center bg-card/90 backdrop-blur-sm border-2 border-primary/20 shadow-xl animate-fade-in">
+                <CardHeader>
+                  <MessageCircle className="h-16 w-16 mx-auto mb-4 text-primary animate-bounce-slow" />
+                  <CardTitle className="text-3xl font-extrabold text-primary">Welcome to Snipchat!</CardTitle>
+                  <CardDescription className="text-lg text-muted-foreground mt-2">
+                    Start a new adventure! Select a conversation from the sidebar or click the '+' button to create a new one.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {/* Additional content can go here if needed */}
+                </CardContent>
+              </Card>
+            </div>
+          )
+        )}
+      </div>
+    );
+  }
+
+  // Desktop/Tablet layout
   return (
     <ResizablePanelGroup
       direction="horizontal"
-      className="flex h-screen bg-gradient-to-br from-blue-200 via-purple-200 to-pink-200 dark:from-gray-800 dark:via-indigo-900 dark:to-purple-950 text-foreground animate-gradient-xy"
+      className={`flex ${commonBackgroundClasses}`}
     >
       <style>{`
         @keyframes gradient-xy {

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { Send, Trash2, PhoneCall } from "lucide-react"; // Import PhoneCall icon
+import { Send, Trash2, PhoneCall, ArrowLeft } from "lucide-react"; // Import ArrowLeft icon
 import { SupabaseConversation } from "./ChatApp";
 import {
   AlertDialog,
@@ -22,7 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useCall } from './CallProvider'; // Import useCall hook
+import { useCall } from './CallProvider';
 
 interface Profile {
   id: string;
@@ -45,6 +45,7 @@ interface ChatMessageAreaProps {
   onSendMessage: (text: string) => void;
   currentUser: User;
   onConversationDeleted: (conversationId: string) => void;
+  onCloseChat?: () => void; // New optional prop for mobile back button
 }
 
 export const ChatMessageArea = ({
@@ -52,11 +53,12 @@ export const ChatMessageArea = ({
   onSendMessage,
   currentUser,
   onConversationDeleted,
+  onCloseChat, // Destructure new prop
 }: ChatMessageAreaProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessageContent, setNewMessageContent] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { startCall, activeCall } = useCall(); // Use the useCall hook
+  const { startCall, activeCall } = useCall();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -88,7 +90,7 @@ export const ChatMessageArea = ({
       if (error) {
         console.error("[ChatMessageArea] Error fetching messages:", error);
         showError("Failed to load messages.");
-        setMessages([]); // Clear messages on error
+        setMessages([]);
       } else {
         console.log("[ChatMessageArea] Raw messages data received:", data);
         const processedData: Message[] = (data || []).map((msg: any) => {
@@ -96,7 +98,7 @@ export const ChatMessageArea = ({
           if (msg.profiles) {
             if (Array.isArray(msg.profiles) && msg.profiles.length > 0) {
               profileData = msg.profiles[0];
-            } else if (!Array.isArray(msg.profiles)) { // It's an object
+            } else if (!Array.isArray(msg.profiles)) {
               profileData = msg.profiles;
             }
           }
@@ -124,7 +126,6 @@ export const ChatMessageArea = ({
         },
         async (payload) => {
           console.log('[ChatMessageArea] New message received!', payload);
-          // Fetch the full message with profile data
           const { data: newMessage, error } = await supabase
             .from('messages')
             .select(
@@ -149,7 +150,6 @@ export const ChatMessageArea = ({
             console.error("[ChatMessageArea] Error fetching new message with profile:", error);
             showError("Failed to load new message details.");
           } else if (newMessage) {
-            // Process profiles for the new message
             let newProfileData: Profile | null = null;
             if (newMessage.profiles) {
               if (Array.isArray(newMessage.profiles) && newMessage.profiles.length > 0) {
@@ -200,7 +200,7 @@ export const ChatMessageArea = ({
 
   const getConversationAvatar = () => {
     if (conversation.name) {
-      return "/placeholder.svg"; // Placeholder for group chat
+      return "/placeholder.svg";
     }
     const otherParticipants = conversation.conversation_participants.filter(
       (p) => p.user_id !== currentUser.id
@@ -239,6 +239,12 @@ export const ChatMessageArea = ({
     <div className="flex flex-col h-full bg-white dark:bg-gray-800 text-foreground shadow-lg rounded-lg overflow-hidden">
       <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md">
         <div className="flex items-center gap-3">
+          {onCloseChat && ( // Show back button only if onCloseChat prop is provided (i.e., on mobile)
+            <Button variant="ghost" size="icon" onClick={onCloseChat} className="text-white hover:bg-white/20">
+              <ArrowLeft className="h-5 w-5" />
+              <span className="sr-only">Back to conversations</span>
+            </Button>
+          )}
           <Avatar className="h-10 w-10 border-2 border-white">
             <AvatarImage src={getConversationAvatar()} alt={getConversationTitle()} />
             <AvatarFallback className="bg-white text-blue-600 font-bold">{getConversationTitle().charAt(0)}</AvatarFallback>
@@ -251,7 +257,7 @@ export const ChatMessageArea = ({
             size="icon"
             className="text-white hover:bg-white/20"
             onClick={handleStartCall}
-            disabled={!!activeCall} // Disable if a call is already active
+            disabled={!!activeCall}
           >
             <PhoneCall className="h-5 w-5" />
             <span className="sr-only">Start Call</span>
