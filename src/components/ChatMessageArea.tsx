@@ -137,6 +137,10 @@ export const ChatMessageArea = ({
             (p) => p.user_id === newMessageData.sender_id
           )?.profiles;
 
+          console.log('[ChatMessageArea] New message sender ID:', newMessageData.sender_id);
+          console.log('[ChatMessageArea] Conversation participants:', conversation.conversation_participants);
+          console.log('[ChatMessageArea] Found sender profile:', senderProfile);
+
           const processedNewMessage: Message = {
             ...newMessageData,
             profiles: senderProfile || null, 
