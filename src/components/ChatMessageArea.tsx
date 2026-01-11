@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { Send, Trash2 } from "lucide-react";
+import { Send, Trash2, ArrowLeft } from "lucide-react"; // Import ArrowLeft
 import { SupabaseConversation } from "./ChatApp";
 import {
   AlertDialog,
@@ -17,7 +17,7 @@ import {
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter, // Corrected import
+  AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
@@ -44,6 +44,7 @@ interface ChatMessageAreaProps {
   onSendMessage: (text: string) => void;
   currentUser: User;
   onConversationDeleted: (conversationId: string) => void;
+  onCloseChat?: () => void; // New optional prop for closing chat (mobile back button)
 }
 
 export const ChatMessageArea = ({
@@ -51,6 +52,7 @@ export const ChatMessageArea = ({
   onSendMessage,
   currentUser,
   onConversationDeleted,
+  onCloseChat, // Destructure the new prop
 }: ChatMessageAreaProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessageContent, setNewMessageContent] = useState("");
@@ -182,6 +184,21 @@ export const ChatMessageArea = ({
     }
   };
 
+  const handleDeleteConversation = async () => {
+    const { error } = await supabase
+      .from('conversations')
+      .delete()
+      .eq('id', conversation.id);
+
+    if (error) {
+      console.error("Error deleting conversation:", error);
+      showError("Failed to delete conversation.");
+    } else {
+      showSuccess("Conversation deleted successfully!");
+      onConversationDeleted(conversation.id);
+    }
+  };
+
   const getConversationTitle = () => {
     if (conversation.name) {
       return conversation.name;
@@ -198,7 +215,8 @@ export const ChatMessageArea = ({
 
   const getConversationAvatar = () => {
     if (conversation.name) {
-      return "/placeholder.svg"; // Placeholder for group chat
+      // Placeholder for group chat avatar
+      return "/placeholder.svg";
     }
     const otherParticipants = conversation.conversation_participants.filter(
       (p) => p.user_id !== currentUser.id
@@ -209,25 +227,16 @@ export const ChatMessageArea = ({
     return "/placeholder.svg";
   };
 
-  const handleDeleteConversation = async () => {
-    const { error } = await supabase
-      .from('conversations')
-      .delete()
-      .eq('id', conversation.id);
-
-    if (error) {
-      console.error("Error deleting conversation:", error);
-      showError("Failed to delete conversation.");
-    } else {
-      showSuccess("Conversation deleted successfully!");
-      onConversationDeleted(conversation.id);
-    }
-  };
-
   return (
     <div className="flex flex-col h-full bg-background text-foreground">
       <div className="flex items-center justify-between p-4 border-b">
         <div className="flex items-center gap-3">
+          {onCloseChat && ( // Conditionally render back button
+            <Button variant="ghost" size="icon" onClick={onCloseChat} className="text-foreground hover:bg-muted">
+              <ArrowLeft className="h-5 w-5" />
+              <span className="sr-only">Back to conversations</span>
+            </Button>
+          )}
           <Avatar className="h-9 w-9">
             <AvatarImage src={getConversationAvatar()} alt={getConversationTitle()} />
             <AvatarFallback>{getConversationTitle().charAt(0)}</AvatarFallback>
@@ -248,12 +257,12 @@ export const ChatMessageArea = ({
                 for all participants and remove its data from our servers.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter> {/* Corrected component name */}
+            <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={handleDeleteConversation} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 Delete
               </AlertDialogAction>
-            </AlertDialogFooter> {/* Corrected component name */}
+            </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
       </div>

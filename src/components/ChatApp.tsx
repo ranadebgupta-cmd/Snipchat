@@ -3,16 +3,17 @@
 import React, { useState, useEffect } from "react";
 import { ChatSidebar } from "./ChatSidebar";
 import { ChatMessageArea } from "./ChatMessageArea";
-import { useAuth } from "@/integrations/supabase/auth"; // Corrected import path
+import { useAuth } from "@/integrations/supabase/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { showError } from "@/utils/toast";
 import { User } from "@supabase/supabase-js";
-import { Spinner } from "./Spinner"; // Corrected import path
+import { Spinner } from "./Spinner";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { useIsMobile } from "@/hooks/use-mobile"; // Import useIsMobile
 
 // Define types for Supabase data
 interface Profile {
@@ -41,6 +42,7 @@ export const ChatApp = () => {
   const [conversations, setConversations] = useState<SupabaseConversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  const isMobile = useIsMobile(); // Use the hook to detect mobile
 
   useEffect(() => {
     if (!user || isAuthLoading) {
@@ -203,6 +205,10 @@ export const ChatApp = () => {
     });
   };
 
+  const handleCloseChat = () => {
+    setSelectedConversationId(null);
+  };
+
   if (isAuthLoading || isLoadingConversations) {
     return (
       <div className="flex items-center justify-center h-screen w-screen bg-background">
@@ -222,29 +228,34 @@ export const ChatApp = () => {
       direction="horizontal"
       className="flex h-screen bg-background text-foreground"
     >
-      <ResizablePanel defaultSize={25} minSize={15}>
-        <ChatSidebar
-          conversations={conversations}
-          selectedConversationId={selectedConversationId}
-          onSelectConversation={setSelectedConversationId}
-          currentUser={user}
-        />
-      </ResizablePanel>
-      <ResizableHandle withHandle />
-      <ResizablePanel defaultSize={75} minSize={30}>
-        {selectedConversation ? (
-          <ChatMessageArea
-            conversation={selectedConversation}
-            onSendMessage={handleSendMessage}
+      {isMobile && selectedConversationId ? null : ( // On mobile, hide sidebar if a chat is selected
+        <ResizablePanel defaultSize={isMobile ? 100 : 25} minSize={isMobile ? 100 : 15}>
+          <ChatSidebar
+            conversations={conversations}
+            selectedConversationId={selectedConversationId}
+            onSelectConversation={setSelectedConversationId}
             currentUser={user}
-            onConversationDeleted={handleConversationDeleted}
           />
-        ) : (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            Select a conversation to start chatting or start a new one.
-          </div>
-        )}
-      </ResizablePanel>
+        </ResizablePanel>
+      )}
+      {!isMobile && <ResizableHandle withHandle />}
+      {isMobile && !selectedConversationId ? null : ( // On mobile, hide chat area if no chat is selected
+        <ResizablePanel defaultSize={isMobile ? 100 : 75} minSize={isMobile ? 100 : 30}>
+          {selectedConversation ? (
+            <ChatMessageArea
+              conversation={selectedConversation}
+              onSendMessage={handleSendMessage}
+              currentUser={user}
+              onConversationDeleted={handleConversationDeleted}
+              onCloseChat={isMobile ? handleCloseChat : undefined} // Pass onCloseChat only on mobile
+            />
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-muted-foreground">
+              Select a conversation to start chatting or start a new one.
+            </div>
+          )}
+        </ResizablePanel>
+      )}
     </ResizablePanelGroup>
   );
 };
