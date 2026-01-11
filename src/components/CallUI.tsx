@@ -206,16 +206,15 @@ export const CallUI = ({ activeCall, incomingCall, onAccept, onDecline, onEnd, c
         </div>
         {activeCall && activeCall.call_url && (
           <div className="mt-6 text-center text-white/90 text-sm">
-            {/* In a real app, you'd embed the WebRTC video/audio here */}
-            {isVideoEnabled ? (
-              <div className="w-full h-48 bg-gray-700 rounded-lg flex items-center justify-center text-lg text-white/70 mb-2">
-                Video Stream Placeholder
-              </div>
-            ) : (
-              <p>Video is off.</p>
-            )}
-            <p>Call is active. (WebRTC stream would go here)</p>
-            <p>Join URL: <a href={activeCall.call_url} target="_blank" rel="noopener noreferrer" className="underline hover:text-white/70">{activeCall.call_url}</a></p>
+            <p className="mb-2">Click the button below to join the Jitsi Meet call:</p>
+            <Button asChild className="bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+              <a href={activeCall.call_url} target="_blank" rel="noopener noreferrer">
+                Join Call
+              </a>
+            </Button>
+            <p className="mt-4 text-xs opacity-80">
+              (This will open Jitsi Meet in a new tab. The in-app video toggle is a placeholder for future direct embedding.)
+            </p>
           </div>
         )}
       </DialogContent>

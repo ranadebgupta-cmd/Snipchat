@@ -153,9 +153,9 @@ export const CallProvider = ({ children, currentUser }: CallProviderProps) => {
       return;
     }
 
-    // In a real application, you would generate a unique call_url/room_id here
-    // using a WebRTC service like Daily.co, Twilio, or Agora.
-    const dummyCallUrl = `https://example.com/call/${conversationId}-${Date.now()}`;
+    // Generate a unique Jitsi Meet room name
+    const jitsiRoomName = `Snipchat-${conversationId}-${Date.now()}`;
+    const jitsiMeetUrl = `https://meet.jit.si/${jitsiRoomName}`;
 
     const { data, error } = await supabase
       .from('calls')
@@ -163,7 +163,7 @@ export const CallProvider = ({ children, currentUser }: CallProviderProps) => {
         caller_id: currentUser.id,
         conversation_id: conversationId,
         status: 'ringing',
-        call_url: dummyCallUrl,
+        call_url: jitsiMeetUrl, // Use the generated Jitsi URL
       })
       .select()
       .single();
@@ -174,8 +174,7 @@ export const CallProvider = ({ children, currentUser }: CallProviderProps) => {
     } else {
       setActiveCall(data);
       showSuccess("Call started, ringing participants...");
-      // Here you would typically redirect to the call_url or open a call UI
-      // For now, CallUI will handle displaying the active call.
+      // The CallUI will now display the "Join Call" button with this URL
     }
   }, [currentUser]);
 
@@ -195,7 +194,7 @@ export const CallProvider = ({ children, currentUser }: CallProviderProps) => {
       setActiveCall({ ...call, status: 'active' });
       setIncomingCall(null);
       showSuccess("Call accepted!");
-      // Navigate to call_url or open call UI
+      // The CallUI will now display the "Join Call" button
     }
   }, [currentUser]);
 
