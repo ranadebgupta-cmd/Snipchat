@@ -32,13 +32,18 @@ interface Profile {
   avatar_url: string | null;
 }
 
-interface Message {
+// Raw message data directly from the 'messages' table
+interface RawMessage {
   id: string;
   conversation_id: string;
   sender_id: string;
   content: string;
   created_at: string;
-  profiles: Profile | null; // Added profiles property
+}
+
+// Enriched message data for display (includes sender profile)
+interface Message extends RawMessage {
+  profiles: Profile | null;
 }
 
 interface ChatMessageAreaProps {
@@ -130,21 +135,20 @@ export const ChatMessageArea = ({
         (payload) => {
           console.log('[ChatMessageArea] Real-time new message payload received:', payload);
 
-          const newMessageData = payload.new as Message; 
+          const rawNewMessageData = payload.new as RawMessage; // Cast to RawMessage
 
           // Find the sender's profile from the current conversation's participants
-          // This ensures the profile is available for display even if not directly in payload
           const senderProfile = conversation.conversation_participants.find(
-            (p) => p.user_id === newMessageData.sender_id
+            (p) => p.user_id === rawNewMessageData.sender_id
           )?.profiles;
 
-          console.log('[ChatMessageArea] New message sender ID:', newMessageData.sender_id);
+          console.log('[ChatMessageArea] New message sender ID:', rawNewMessageData.sender_id);
           console.log('[ChatMessageArea] Conversation participants:', conversation.conversation_participants);
           console.log('[ChatMessageArea] Found sender profile for real-time message:', senderProfile);
 
-          const processedNewMessage: Message = {
-            ...newMessageData,
-            profiles: senderProfile || null, 
+          const processedNewMessage: Message = { // Construct the full Message
+            ...rawNewMessageData,
+            profiles: senderProfile || null,
           };
 
           setMessages((prevMessages) => {

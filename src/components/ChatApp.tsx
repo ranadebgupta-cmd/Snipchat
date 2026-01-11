@@ -392,6 +392,7 @@ export const ChatApp = () => {
             >
               {selectedConversation ? (
                 <ChatMessageArea
+                  key={selectedConversationId} // Crucial: Add key prop here
                   conversation={selectedConversation}
                   onSendMessage={handleSendMessage}
                   currentUser={user}
