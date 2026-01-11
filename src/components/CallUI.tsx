@@ -45,6 +45,7 @@ export const CallUI = ({ activeCall, incomingCall, onAccept, onDecline, onEnd, c
   const [callerProfile, setCallerProfile] = useState<Profile | null>(null);
   const [conversationName, setConversationName] = useState<string | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(false); // New state for video toggle
 
   const call = activeCall || incomingCall;
   const isOpen = !!call;
@@ -181,7 +182,11 @@ export const CallUI = ({ activeCall, incomingCall, onAccept, onDecline, onEnd, c
                 <Mic className="h-6 w-6" />
                 <span className="sr-only">Mute Mic</span>
               </Button>
-              <Button variant="ghost" className="text-white hover:bg-white/20 rounded-full h-12 w-12 flex items-center justify-center">
+              <Button
+                variant="ghost"
+                className={`text-white rounded-full h-12 w-12 flex items-center justify-center ${isVideoEnabled ? 'bg-white/30' : 'hover:bg-white/20'}`}
+                onClick={() => setIsVideoEnabled(!isVideoEnabled)}
+              >
                 <Video className="h-6 w-6" />
                 <span className="sr-only">Toggle Video</span>
               </Button>
@@ -202,6 +207,13 @@ export const CallUI = ({ activeCall, incomingCall, onAccept, onDecline, onEnd, c
         {activeCall && activeCall.call_url && (
           <div className="mt-6 text-center text-white/90 text-sm">
             {/* In a real app, you'd embed the WebRTC video/audio here */}
+            {isVideoEnabled ? (
+              <div className="w-full h-48 bg-gray-700 rounded-lg flex items-center justify-center text-lg text-white/70 mb-2">
+                Video Stream Placeholder
+              </div>
+            ) : (
+              <p>Video is off.</p>
+            )}
             <p>Call is active. (WebRTC stream would go here)</p>
             <p>Join URL: <a href={activeCall.call_url} target="_blank" rel="noopener noreferrer" className="underline hover:text-white/70">{activeCall.call_url}</a></p>
           </div>
