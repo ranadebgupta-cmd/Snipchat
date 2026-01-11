@@ -283,9 +283,13 @@ export const ChatSidebar = ({
         <div className="flex items-center gap-2">
           <Dialog open={isNewChatDialogOpen} onOpenChange={setIsNewChatDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 transition-colors">
-                <PlusCircle className="h-5 w-5" />
-                <span className="sr-only">New Chat</span>
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="bg-white text-blue-600 hover:bg-blue-100 transition-colors duration-200 flex items-center gap-1 px-3 py-2 rounded-full shadow-md hover:shadow-lg"
+              >
+                <PlusCircle className="h-4 w-4" />
+                <span>New Chat</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px] bg-card dark:bg-gray-800 text-card-foreground dark:text-gray-100">
