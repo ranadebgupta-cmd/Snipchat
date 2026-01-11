@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react"; // Import useCallback
 import { ChatSidebar } from "./ChatSidebar";
 import { ChatMessageArea } from "./ChatMessageArea";
 import { useAuth } from "@/integrations/supabase/auth";
@@ -44,100 +44,109 @@ export const ChatApp = () => {
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const isMobile = useIsMobile();
 
+  // Memoize fetchConversations to ensure its reference is stable
+  const fetchConversations = useCallback(async () => {
+    if (!user) { // Ensure user is available before fetching
+      setIsLoadingConversations(false);
+      return;
+    }
+
+    setIsLoadingConversations(true);
+    
+    const { data: rawConversationsData, error: conversationsError } = await supabase
+      .from('conversation_participants')
+      .select(
+        `
+        conversations (
+          id,
+          name,
+          created_at,
+          conversation_participants (
+            user_id,
+            profiles (
+              id,
+              first_name,
+              last_name,
+              avatar_url
+            )
+          )
+        )
+        `
+      )
+      .eq('user_id', user.id);
+
+    if (conversationsError) {
+      console.error("[ChatApp] Error fetching conversations:", conversationsError);
+      showError(`Failed to load conversations: ${conversationsError.message}`);
+      setIsLoadingConversations(false);
+      return;
+    }
+
+    const rawConversations = rawConversationsData || [];
+    const conversationIds = rawConversations.map((cp: any) => cp.conversations.id);
+
+    const { data: latestMessagesData, error: latestMessagesError } = await supabase
+      .from('conversation_last_message')
+      .select('*')
+      .in('conversation_id', conversationIds);
+
+    if (latestMessagesError) {
+      console.error("[ChatApp] Error fetching latest messages:", latestMessagesError);
+      showError(`Failed to load latest messages: ${latestMessagesError.message}`);
+      setIsLoadingConversations(false);
+      return;
+    }
+
+    const latestMessagesMap = new Map(latestMessagesData?.map(msg => [msg.conversation_id, msg]));
+
+    const processedConversations: SupabaseConversation[] = rawConversations
+      .map((cp: any) => {
+        const conv = cp.conversations;
+        if (!conv) return null;
+
+        const processedParticipants = (conv.conversation_participants || []).map((participant: any) => ({
+          user_id: participant.user_id,
+          profiles: Array.isArray(participant.profiles) ? participant.profiles[0] : participant.profiles,
+        }));
+
+        const lastMessage = latestMessagesMap.get(conv.id);
+
+        return {
+          id: conv.id,
+          name: conv.name,
+          created_at: conv.created_at,
+          conversation_participants: processedParticipants,
+          latest_message_content: lastMessage?.latest_message_content || null,
+          latest_message_sender_id: lastMessage?.latest_message_sender_id || null,
+          latest_message_created_at: lastMessage?.latest_message_created_at || null,
+        };
+      })
+      .filter(Boolean) as SupabaseConversation[];
+
+      processedConversations.sort((a, b) => {
+        const dateA = a.latest_message_created_at ? new Date(a.latest_message_created_at).getTime() : 0;
+        const dateB = b.latest_message_created_at ? new Date(b.latest_message_created_at).getTime() : 0;
+        return dateB - dateA;
+      });
+
+      setConversations(processedConversations);
+
+      // Only update selectedConversationId if it's null or the current one no longer exists
+      if (processedConversations.length > 0 && (!selectedConversationId || !processedConversations.some(c => c.id === selectedConversationId))) {
+        setSelectedConversationId(processedConversations[0].id);
+      } else if (processedConversations.length === 0) {
+        setSelectedConversationId(null);
+      }
+    setIsLoadingConversations(false);
+  }, [user, selectedConversationId]); // Dependencies for useCallback
+
   useEffect(() => {
     if (!user || isAuthLoading) {
       setIsLoadingConversations(false);
       return;
     }
 
-    const fetchConversations = async () => {
-      setIsLoadingConversations(true);
-      
-      const { data: rawConversationsData, error: conversationsError } = await supabase
-        .from('conversation_participants')
-        .select(
-          `
-          conversations (
-            id,
-            name,
-            created_at,
-            conversation_participants (
-              user_id,
-              profiles (
-                id,
-                first_name,
-                last_name,
-                avatar_url
-              )
-            )
-          )
-          `
-        )
-        .eq('user_id', user.id);
-
-      if (conversationsError) {
-        console.error("[ChatApp] Error fetching conversations:", conversationsError);
-        showError(`Failed to load conversations: ${conversationsError.message}`);
-        setIsLoadingConversations(false);
-        return;
-      }
-
-      const rawConversations = rawConversationsData || [];
-      const conversationIds = rawConversations.map((cp: any) => cp.conversations.id);
-
-      const { data: latestMessagesData, error: latestMessagesError } = await supabase
-        .from('conversation_last_message')
-        .select('*')
-        .in('conversation_id', conversationIds);
-
-      if (latestMessagesError) {
-        console.error("[ChatApp] Error fetching latest messages:", latestMessagesError);
-        showError(`Failed to load latest messages: ${latestMessagesError.message}`);
-        setIsLoadingConversations(false);
-        return;
-      }
-
-      const latestMessagesMap = new Map(latestMessagesData?.map(msg => [msg.conversation_id, msg]));
-
-      const processedConversations: SupabaseConversation[] = rawConversations
-        .map((cp: any) => {
-          const conv = cp.conversations;
-          if (!conv) return null;
-
-          const processedParticipants = (conv.conversation_participants || []).map((participant: any) => ({
-            user_id: participant.user_id,
-            profiles: Array.isArray(participant.profiles) ? participant.profiles[0] : participant.profiles,
-          }));
-
-          const lastMessage = latestMessagesMap.get(conv.id);
-
-          return {
-            id: conv.id,
-            name: conv.name,
-            created_at: conv.created_at,
-            conversation_participants: processedParticipants,
-            latest_message_content: lastMessage?.latest_message_content || null,
-            latest_message_sender_id: lastMessage?.latest_message_sender_id || null,
-            latest_message_created_at: lastMessage?.latest_message_created_at || null,
-          };
-        })
-        .filter(Boolean) as SupabaseConversation[];
-
-        processedConversations.sort((a, b) => {
-          const dateA = a.latest_message_created_at ? new Date(a.latest_message_created_at).getTime() : 0;
-          const dateB = b.latest_message_created_at ? new Date(b.latest_message_created_at).getTime() : 0;
-          return dateB - dateA;
-        });
-
-        setConversations(processedConversations);
-        if (processedConversations.length > 0 && !selectedConversationId) {
-          setSelectedConversationId(processedConversations[0].id);
-        } else if (processedConversations.length === 0) {
-          setSelectedConversationId(null);
-        }
-      setIsLoadingConversations(false);
-    };
-
+    // Initial fetch
     fetchConversations();
 
     const channel = supabase
@@ -145,17 +154,15 @@ export const ChatApp = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'conversations' },
-        (payload) => {
-          // console.log('[ChatApp] Conversation change received!', payload); // Removed log
-          fetchConversations();
+        () => {
+          fetchConversations(); // Re-fetch on conversation changes
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'messages' },
-        (payload) => {
-          // console.log('[ChatApp] Message change received!', payload); // Removed log
-          fetchConversations();
+        () => {
+          fetchConversations(); // Re-fetch on message changes (to update latest message snippet)
         }
       )
       .subscribe();
@@ -163,7 +170,7 @@ export const ChatApp = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, isAuthLoading, selectedConversationId]);
+  }, [user, isAuthLoading, fetchConversations]); // Dependencies for useEffect
 
   const selectedConversation = conversations.find(
     (conv) => conv.id === selectedConversationId
