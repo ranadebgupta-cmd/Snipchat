@@ -3,16 +3,18 @@
 import React, { useState, useEffect } from "react";
 import { ChatSidebar } from "./ChatSidebar";
 import { ChatMessageArea } from "./ChatMessageArea";
-import { useAuth } from "@/integrations/supabase/auth"; // Corrected import path
+import { useAuth } from "@/integrations/supabase/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { showError } from "@/utils/toast";
 import { User } from "@supabase/supabase-js";
-import { Spinner } from "./Spinner"; // Corrected import path
+import { Spinner } from "./Spinner";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"; // Import Card components
+import { MessageCircle } from "lucide-react"; // Import MessageCircle icon
 
 // Define types for Supabase data
 interface Profile {
@@ -220,7 +222,7 @@ export const ChatApp = () => {
   return (
     <ResizablePanelGroup
       direction="horizontal"
-      className="flex h-screen bg-background text-foreground"
+      className="flex h-screen bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-indigo-950 text-foreground"
     >
       <ResizablePanel defaultSize={25} minSize={15}>
         <ChatSidebar
@@ -240,8 +242,19 @@ export const ChatApp = () => {
             onConversationDeleted={handleConversationDeleted}
           />
         ) : (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            Select a conversation to start chatting or start a new one.
+          <div className="flex-1 flex items-center justify-center p-4">
+            <Card className="w-full max-w-md text-center bg-card/80 backdrop-blur-sm">
+              <CardHeader>
+                <MessageCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <CardTitle className="text-2xl font-bold">Welcome to Snipchat!</CardTitle>
+                <CardDescription className="text-muted-foreground">
+                  Select a conversation from the sidebar to start chatting, or click the '+' button to create a new one.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {/* Additional content can go here if needed */}
+              </CardContent>
+            </Card>
           </div>
         )}
       </ResizablePanel>
