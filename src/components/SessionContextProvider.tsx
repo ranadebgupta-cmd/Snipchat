@@ -20,6 +20,7 @@ export const SessionContextProvider = ({ children }: SessionContextProps) => {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+      console.log("[SessionContextProvider] Auth state changed:", _event, "Session:", currentSession);
       setSession(currentSession);
       setIsLoading(false);
 

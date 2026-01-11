@@ -182,12 +182,14 @@ export const ChatApp = () => {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' }, // Listen only for new messages
         (payload) => {
-          console.log("[ChatApp] Real-time new message detected (for sidebar update):", payload);
+          console.log("[ChatApp] Real-time new message payload received:", payload);
           const newMessage = payload.new as Message;
 
           setConversations(prevConversations => {
+            console.log("[ChatApp] Previous conversations state for real-time update:", prevConversations);
             const updatedConversations = prevConversations.map(conv => {
               if (conv.id === newMessage.conversation_id) {
+                console.log(`[ChatApp] Updating conversation ${conv.id} with new message.`);
                 return {
                   ...conv,
                   latest_message_content: newMessage.content,
