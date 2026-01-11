@@ -5,7 +5,7 @@ import { User } from "@supabase/supabase-js";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { SupabaseConversation } from "@/components/ChatApp";
-import { PlusCircle, LogOut, UserPlus, X } from "lucide-react"; // Import LogOut, UserPlus, X icons
+import { PlusCircle, LogOut, UserPlus, X, User as UserIcon, Settings } from "lucide-react"; // Import LogOut, UserPlus, X, User, Settings icons
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -24,6 +24,7 @@ import { showError, showSuccess } from "@/utils/toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "./Spinner"; // Import Spinner
+import { useNavigate } from "react-router-dom"; // Import useNavigate
 
 interface ChatSidebarProps {
   conversations: SupabaseConversation[];
@@ -82,19 +83,23 @@ const ConversationItem = ({
   };
 
   const displayLatestMessage = () => {
+    // Use the new latest_message_content property
     if (!conversation.latest_message_content) {
       return "No messages yet.";
     }
 
+    const latestMessageContent = conversation.latest_message_content;
+    const latestMessageSenderId = conversation.latest_message_sender_id;
+
     const latestMessageSender = conversation.conversation_participants.find(
-      (p) => p.user_id === conversation.latest_message_sender_id
+      (p) => p.user_id === latestMessageSenderId
     );
 
     const senderFirstName = latestMessageSender?.profiles?.first_name || "Unknown";
     
-    const truncatedContent = conversation.latest_message_content.length > 30
-      ? conversation.latest_message_content.substring(0, 27) + "..."
-      : conversation.latest_message_content;
+    const truncatedContent = latestMessageContent.length > 30
+      ? latestMessageContent.substring(0, 27) + "..."
+      : latestMessageContent;
 
     return `${senderFirstName}: ${truncatedContent}`;
   };
@@ -141,20 +146,9 @@ export const ChatSidebar = ({
   const [selectedNewChatParticipants, setSelectedNewChatParticipants] = useState<SearchProfile[]>([]);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
   const [isCreatingChat, setIsCreatingChat] = useState(false);
+  const navigate = useNavigate(); // Initialize useNavigate
 
-  // Debounce search term
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      if (searchTerm.trim()) {
-        handleSearchUsers(searchTerm);
-      } else {
-        setSearchResults([]);
-      }
-    }, 300); // 300ms debounce
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm]);
-
+  // Moved handleSearchUsers declaration before its usage in useEffect
   const handleSearchUsers = useCallback(async (term: string) => {
     if (!term.trim()) {
       setSearchResults([]);
@@ -182,6 +176,19 @@ export const ChatSidebar = ({
       setIsSearchingUsers(false);
     }
   }, [currentUser.id]);
+
+  // Debounce search term
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (searchTerm.trim()) {
+        handleSearchUsers(searchTerm);
+      } else {
+        setSearchResults([]);
+      }
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm, handleSearchUsers]);
 
   const handleAddParticipantToNewChat = (profile: SearchProfile) => {
     if (!selectedNewChatParticipants.some(p => p.id === profile.id)) {
@@ -261,6 +268,10 @@ export const ChatSidebar = ({
       console.error("[ChatSidebar] Error logging out:", error);
       showError(`Failed to log out: ${error.message || "Unknown error"}`);
     }
+  };
+
+  const handleEditProfile = () => {
+    navigate('/profile');
   };
 
   return (
@@ -358,6 +369,10 @@ export const ChatSidebar = ({
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          <Button variant="ghost" size="icon" onClick={handleEditProfile} className="text-sidebar-foreground hover:text-sidebar-primary">
+            <UserIcon className="h-5 w-5" />
+            <span className="sr-only">Edit Profile</span>
+          </Button>
           <Button variant="ghost" size="icon" onClick={handleLogout} className="text-sidebar-foreground hover:text-destructive">
             <LogOut className="h-5 w-5" />
             <span className="sr-only">Logout</span>

@@ -4,7 +4,7 @@ import React from 'react';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
-import { MadeWithDyad } from '@/components/made-with-dyad';
+// import { MadeWithDyad } from '@/components/made-with-dyad'; // Removed import
 
 const Login = () => {
   return (
@@ -34,7 +34,7 @@ const Login = () => {
           redirectTo={window.location.origin}
         />
       </div>
-      <MadeWithDyad />
+      {/* <MadeWithDyad /> Removed MadeWithDyad component */}
     </div>
   );
 };
