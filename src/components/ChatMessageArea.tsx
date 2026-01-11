@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { Send, Trash2 } from "lucide-react";
+import { Send, Trash2, PhoneCall } from "lucide-react"; // Import PhoneCall icon
 import { SupabaseConversation } from "./ChatApp";
 import {
   AlertDialog,
@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useCall } from './CallProvider'; // Import useCall hook
 
 interface Profile {
   id: string;
@@ -55,6 +56,7 @@ export const ChatMessageArea = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessageContent, setNewMessageContent] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { startCall, activeCall } = useCall(); // Use the useCall hook
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -224,6 +226,15 @@ export const ChatMessageArea = ({
     }
   };
 
+  const handleStartCall = () => {
+    if (!currentUser) {
+      showError("You must be logged in to start a call.");
+      return;
+    }
+    const participantIds = conversation.conversation_participants.map(p => p.user_id);
+    startCall(conversation.id, participantIds);
+  };
+
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-800 text-foreground shadow-lg rounded-lg overflow-hidden">
       <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md">
@@ -234,28 +245,40 @@ export const ChatMessageArea = ({
           </Avatar>
           <h3 className="text-xl font-bold">{getConversationTitle()}</h3>
         </div>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
-              <Trash2 className="h-5 w-5" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete this conversation
-                for all participants and remove its data from our servers.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteConversation} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-white hover:bg-white/20"
+            onClick={handleStartCall}
+            disabled={!!activeCall} // Disable if a call is already active
+          >
+            <PhoneCall className="h-5 w-5" />
+            <span className="sr-only">Start Call</span>
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
+                <Trash2 className="h-5 w-5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete this conversation
+                  for all participants and remove its data from our servers.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteConversation} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
 
       <ScrollArea className="flex-1 p-4 bg-gray-50 dark:bg-gray-900">

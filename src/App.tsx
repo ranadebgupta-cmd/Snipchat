@@ -11,6 +11,7 @@ import { SessionContextProvider } from "./components/SessionContextProvider";
 import { useEffect } from "react";
 import { useAuth } from "./integrations/supabase/auth";
 import { requestPushNotificationPermissions, registerPushNotifications, setupPushNotificationListeners, unregisterPushNotifications } from "./integrations/supabase/pushNotifications";
+import { CallProvider } from "./components/CallProvider"; // Import CallProvider
 
 const queryClient = new QueryClient();
 
@@ -38,13 +39,15 @@ const AppContent = () => {
   return (
     <BrowserRouter>
       <SessionContextProvider>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/" element={<ChatApp />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <CallProvider currentUser={user}> {/* Wrap ChatApp with CallProvider */}
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/" element={<ChatApp />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </CallProvider>
       </SessionContextProvider>
     </BrowserRouter>
   );
