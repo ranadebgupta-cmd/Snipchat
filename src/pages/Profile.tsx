@@ -79,10 +79,13 @@ const Profile = () => {
     if (error) {
       console.error("Error updating profile:", error);
       showError("Failed to update profile.");
+      setIsSaving(false);
     } else {
       showSuccess("Profile updated successfully!");
+      setTimeout(() => {
+        navigate(-1); // Go back to the previous page
+      }, 1000); // 1-second delay to show the toast
     }
-    setIsSaving(false);
   };
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
