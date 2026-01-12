@@ -200,28 +200,22 @@ export const ChatSidebar = ({
     }
     setIsCreatingChat(true);
     try {
-      const { data: convData, error: convError } = await supabase
-        .from('conversations')
-        .insert({ name: newChatName.trim() || null })
-        .select()
-        .single();
+      const participantIds = [currentUser.id, ...selectedNewChatParticipants.map(p => p.id)];
+      
+      const { data: newConversationId, error } = await supabase
+        .rpc('create_new_conversation', {
+          conversation_name: newChatName.trim() || null,
+          participant_ids: participantIds
+        });
 
-      if (convError) throw convError;
-
-      const participantInserts = [currentUser.id, ...selectedNewChatParticipants.map(p => p.id)].map(id => ({
-        conversation_id: convData.id,
-        user_id: id,
-      }));
-
-      const { error: partError } = await supabase.from('conversation_participants').insert(participantInserts);
-      if (partError) throw partError;
+      if (error) throw error;
 
       showSuccess("New chat created!");
       setNewChatName("");
       setSearchTerm("");
       setSelectedNewChatParticipants([]);
       setIsNewChatDialogOpen(false);
-      onSelectConversation(convData.id);
+      onSelectConversation(newConversationId);
     } catch (error: any) {
       showError(`Failed to create chat: ${error.message}`);
     } finally {
